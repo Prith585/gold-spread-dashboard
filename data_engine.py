@@ -12,7 +12,12 @@ Calculates:
 - Full spread matrix, annualized yields, calendar spreads, and theoretical carry models.
 """
 
-from curl_cffi import requests
+try:
+    from curl_cffi import requests
+    HAS_CURL_CFFI = True
+except Exception:
+    import requests
+    HAS_CURL_CFFI = False
 from bs4 import BeautifulSoup
 from datetime import datetime, date, time as dtime
 import time
@@ -75,7 +80,11 @@ class GoldSpreadDataEngine:
             return self.cached_spot
 
         try:
-            r = requests.get('https://ibjarates.com/', impersonate='chrome120', timeout=15)
+            if HAS_CURL_CFFI:
+                r = requests.get('https://ibjarates.com/', impersonate='chrome120', timeout=15)
+            else:
+                h = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+                r = requests.get('https://ibjarates.com/', headers=h, timeout=15)
             soup = BeautifulSoup(r.text, 'html.parser')
             
             tables = soup.find_all('table')
@@ -226,12 +235,19 @@ class GoldSpreadDataEngine:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
         try:
-            r = requests.get(
-                'https://www.mcxindia.com/market-data/market-watch/GetMarketWatch?culture=en',
-                impersonate='chrome120',
-                headers=headers,
-                timeout=15
-            )
+            if HAS_CURL_CFFI:
+                r = requests.get(
+                    'https://www.mcxindia.com/market-data/market-watch/GetMarketWatch?culture=en',
+                    impersonate='chrome120',
+                    headers=headers,
+                    timeout=15
+                )
+            else:
+                r = requests.get(
+                    'https://www.mcxindia.com/market-data/market-watch/GetMarketWatch?culture=en',
+                    headers=headers,
+                    timeout=15
+                )
             data = r.json()
             items = data.get('data', {}).get('Data', [])
             
