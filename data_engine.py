@@ -24,7 +24,7 @@ import time
 import math
 import json
 import logging
-import yfinance as yf
+import urllib.request
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -198,8 +198,12 @@ class GoldSpreadDataEngine:
             return self.cached_etf
 
         try:
-            ticker = yf.Ticker('GOLDBEES.NS')
-            ltp = float(ticker.fast_info.last_price or 118.25)
+            url = 'https://query1.finance.yahoo.com/v8/finance/chart/GOLDBEES.NS'
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+            res = urllib.request.urlopen(req, timeout=5)
+            data = json.loads(res.read().decode('utf-8'))
+            meta = data['chart']['result'][0]['meta']
+            ltp = float(meta.get('regularMarketPrice') or 118.25)
             # 1 unit of GOLDBEES = 0.01g gold => 10g basis = ltp * 1000
             price_10g = round(ltp * 1000.0, 2)
             result = {

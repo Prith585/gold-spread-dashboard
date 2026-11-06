@@ -36,6 +36,11 @@ refresh_thread.start()
 def index():
     return render_template('index.html')
 
+@app.route('/healthz')
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'ok', 'service': 'gold-spread-dashboard'}), 200
+
 @app.route('/api/tunnel', methods=['GET'])
 def get_tunnel():
     """Returns currently active Cloudflare public tunnel URL"""
