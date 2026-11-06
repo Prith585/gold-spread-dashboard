@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+mingit/
+gh.exe
+cloudflared.exe
+active_tunnel.txt
+*.log
+.git/
+.venv/
