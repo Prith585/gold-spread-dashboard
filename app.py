@@ -19,6 +19,7 @@ app.jinja_env.auto_reload = True
 # Background worker to keep data fresh
 def background_data_refresher():
     """Periodically refreshes MCX futures and All India Bullion spot data in background"""
+    time.sleep(3)  # Allow worker to bind to port and pass healthcheck immediately
     while True:
         try:
             # Refresh every 30 seconds

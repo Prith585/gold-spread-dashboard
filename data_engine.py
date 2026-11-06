@@ -362,7 +362,10 @@ class GoldSpreadDataEngine:
 
         sorted_months = sorted(months_map.keys())
         active_3_keys = sorted_months[:3]
-        active_3_labels = [months_map[k]['label'] for k in active_3_keys]
+        if active_3_keys:
+            active_3_labels = [months_map[k]['label'] for k in active_3_keys]
+        else:
+            active_3_labels = ['NOV', 'DEC', 'JAN']
 
         # Instruments specification matching photo
         instruments_spec = [
@@ -790,7 +793,7 @@ class GoldSpreadDataEngine:
             'parity_check': parity_check_data,
             'optimal_opportunities': {
                 'best_november': best_november,
-                'best_overall_yield': best_november or forward_liquid[0],
+                'best_overall_yield': best_november or (forward_liquid[0] if forward_liquid else None),
                 'best_december': best_december,
                 'best_institutional_1kg': best_institutional,
                 'best_micro_retail': best_retail,
