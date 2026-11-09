@@ -43,17 +43,8 @@ def health_check():
 
 @app.route('/api/tunnel', methods=['GET'])
 def get_tunnel():
-    """Returns currently active Cloudflare public tunnel URL"""
-    tunnel_file = os.path.join(os.path.dirname(__file__), 'active_tunnel.txt')
-    try:
-        if os.path.exists(tunnel_file):
-            with open(tunnel_file, 'r') as f:
-                url = f.read().strip()
-                if url and url.startswith('http'):
-                    return jsonify({'success': True, 'url': url})
-    except Exception:
-        pass
-    return jsonify({'success': True, 'url': 'https://organisations-gps-infants-morgan.trycloudflare.com'})
+    """Returns permanent cloud URL for mobile devices"""
+    return jsonify({'success': True, 'url': 'https://gold-spread-dashboard.onrender.com'})
 
 @app.route('/api/data', methods=['GET'])
 def get_live_data():

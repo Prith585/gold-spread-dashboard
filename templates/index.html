@@ -1132,20 +1132,8 @@
 
         // Phone Access Modal
         const wifiLocalUrl = "http://192.168.68.106:5055";
-        let cloudflareTunnelUrl = "https://organisations-gps-infants-morgan.trycloudflare.com";
+        const permanentCloudUrl = "https://gold-spread-dashboard.onrender.com";
         let activePhoneMode = 'cloud'; // 'cloud' or 'wifi'
-
-        async function fetchActiveTunnel() {
-            try {
-                const res = await fetch('/api/tunnel');
-                const data = await res.json();
-                if (data.success && data.url) {
-                    cloudflareTunnelUrl = data.url;
-                }
-            } catch (e) {
-                console.warn("Could not fetch active tunnel:", e);
-            }
-        }
 
         function setPhoneTab(mode) {
             activePhoneMode = mode;
@@ -1156,17 +1144,17 @@
             const noteText = document.getElementById('phoneNoteText');
 
             if (mode === 'cloud') {
-                btnCloud.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition";
-                btnWifi.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition";
-                phoneUrlText.innerText = cloudflareTunnelUrl;
-                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(cloudflareTunnelUrl)}`;
-                noteText.innerHTML = `<strong>Method 2 (Worldwide 4G/5G):</strong> Works from anywhere on mobile data without needing Wi-Fi. Just scan and go!`;
+                btnCloud.className = "flex-1 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20";
+                btnWifi.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition flex items-center justify-center gap-1.5";
+                phoneUrlText.innerText = permanentCloudUrl;
+                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(permanentCloudUrl)}`;
+                noteText.innerHTML = `<strong>☁️ Permanent 24/7 Cloud:</strong> Hosted on a cloud server. <strong>Works completely independent of your laptop!</strong> You can turn off, close, or shut down your laptop and this link will still work on your phone anywhere in the world.`;
             } else {
-                btnWifi.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition";
-                btnCloud.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition";
+                btnWifi.className = "flex-1 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20";
+                btnCloud.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition flex items-center justify-center gap-1.5";
                 phoneUrlText.innerText = wifiLocalUrl;
                 qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(wifiLocalUrl)}`;
-                noteText.innerHTML = `<strong>Method 1 (Local Wi-Fi):</strong> Connect your phone to the same Wi-Fi as this computer for direct access.`;
+                noteText.innerHTML = `<strong>📶 Local Wi-Fi:</strong> Connect your phone to the same Wi-Fi network as this laptop for direct local testing.`;
             }
         }
 
@@ -1174,7 +1162,6 @@
             const modal = document.getElementById('phoneModal');
             if (modal) {
                 modal.classList.remove('hidden');
-                await fetchActiveTunnel();
                 setPhoneTab(activePhoneMode);
             }
         }
@@ -1185,7 +1172,7 @@
         }
 
         function copyPhoneUrl() {
-            const targetUrl = activePhoneMode === 'cloud' ? cloudflareTunnelUrl : wifiLocalUrl;
+            const targetUrl = activePhoneMode === 'cloud' ? permanentCloudUrl : wifiLocalUrl;
             navigator.clipboard.writeText(targetUrl).then(() => {
                 showToast("URL copied: " + targetUrl);
             });
@@ -1224,30 +1211,30 @@
 
             <!-- Tab Switcher: Mobile 4G vs Local Wi-Fi -->
             <div class="flex items-center bg-gray-900 p-1 rounded-xl border border-gray-800 gap-1">
-                <button id="phoneTabCloud" onclick="setPhoneTab('cloud')" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-earth-americas"></i>
-                    <span>Method 2: Mobile 4G / 5G</span>
+                <button id="phoneTabCloud" onclick="setPhoneTab('cloud')" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-cloud"></i>
+                    <span>☁️ 24/7 Cloud (No Laptop Needed)</span>
                 </button>
                 <button id="phoneTabWifi" onclick="setPhoneTab('wifi')" class="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition flex items-center justify-center gap-1.5">
                     <i class="fa-solid fa-wifi"></i>
-                    <span>Method 1: Same Wi-Fi</span>
+                    <span>📶 Local Wi-Fi</span>
                 </button>
             </div>
 
             <!-- QR Code Section -->
             <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 flex flex-col items-center justify-center space-y-2.5">
                 <div class="bg-white p-2.5 rounded-xl shadow-xl">
-                    <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Furban-locator-kept-compete.trycloudflare.com" alt="QR Code" class="w-44 h-44 rounded">
+                    <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fgold-spread-dashboard.onrender.com" alt="QR Code" class="w-44 h-44 rounded">
                 </div>
                 <span class="text-xs text-amber-300 font-sans text-center font-medium">
-                    📸 Scan this QR code with your phone camera to open instantly
+                    📸 Scan this QR code with your phone to open your 24/7 Cloud Terminal
                 </span>
             </div>
 
             <!-- Direct URL Link -->
             <div class="space-y-1">
                 <div class="flex items-center bg-gray-900 border border-gray-700 rounded-lg overflow-hidden px-3 py-2 font-mono text-xs text-amber-400 font-bold justify-between">
-                    <span id="phoneUrlText" class="truncate mr-2">https://urban-locator-kept-compete.trycloudflare.com</span>
+                    <span id="phoneUrlText" class="truncate mr-2">https://gold-spread-dashboard.onrender.com</span>
                     <button onclick="copyPhoneUrl()" title="Copy Link" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 px-2.5 py-1 rounded transition flex-shrink-0">
                         <i class="fa-regular fa-copy mr-1"></i>Copy
                     </button>
@@ -1257,7 +1244,7 @@
             <!-- Instructions -->
             <div class="bg-blue-950/30 border border-blue-900/40 rounded-xl p-3 text-xs text-gray-300 font-sans space-y-1">
                 <p id="phoneNoteText" class="text-[11px] text-gray-400 leading-relaxed">
-                    <strong>Method 2 (Worldwide 4G/5G):</strong> Works from anywhere on mobile data without needing Wi-Fi. Just scan and go!
+                    <strong>☁️ Permanent 24/7 Cloud:</strong> Hosted on a cloud server. <strong>Works completely independent of your laptop!</strong> You can turn off, close, or shut down your laptop and this link will still work on your phone anywhere in the world.
                 </p>
                 <p class="text-[10px] text-gray-500 pt-1 border-t border-gray-800">
                     💡 Tip: In Chrome/Safari, tap <strong>"Add to Home Screen"</strong> to use it like a full-screen mobile app!
