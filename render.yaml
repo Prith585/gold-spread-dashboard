@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: gold-spread-dashboard
-    runtime: python
-    buildCommand: pip install --upgrade pip setuptools wheel && pip install --only-binary=:all: curl-cffi && pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    name: mcx-gold-spread-terminal
+    env: python
+    region: singapore
     plan: free
-    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9

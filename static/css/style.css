@@ -1,0 +1,74 @@
+/* Custom styles for clean, presentable MCX Gold Spread Terminal */
+
+body {
+    background-color: #030712;
+    color: #f1f5f9;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #090d16;
+}
+::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* Mode Buttons */
+.mode-btn {
+    color: #94a3b8;
+    background: transparent;
+}
+.mode-btn.active {
+    background: #1e293b;
+    color: #f59e0b;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Chart Switcher Tabs */
+.chart-tab {
+    color: #94a3b8;
+    background: transparent;
+}
+.chart-tab:hover {
+    color: #f8fafc;
+    background: rgba(30, 41, 59, 0.4);
+}
+.chart-tab.active {
+    color: #f59e0b;
+    background: #1e293b;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Timeframe quick buttons */
+.btn-timeframe {
+    transition: all 0.15s ease;
+}
+
+/* Table Transitions */
+tbody tr {
+    transition: background-color 0.15s ease;
+}
+tbody tr:hover {
+    background-color: rgba(30, 41, 59, 0.5);
+}
+
+/* Pulse animation for active sync */
+@keyframes spin-slow {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+.spin-active {
+    animation: spin-slow 1s linear infinite;
+}

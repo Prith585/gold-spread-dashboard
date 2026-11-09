@@ -3,1268 +3,564 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gold Parity Check &amp; Spread Arbitrage Terminal | MCX &amp; All India Bullion</title>
+    <title>MCX Gold Futures Spread & Percentage Terminal</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Plotly.js CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        gold: {
-                            50: '#fffdf5',
-                            100: '#fef9e8',
-                            200: '#fcf0c3',
-                            300: '#fae395',
-                            400: '#f5cd4e',
-                            500: '#eab308',
-                            600: '#ca8a04',
-                            700: '#a16207',
-                            800: '#854d0e',
-                            900: '#713f12',
-                        },
-                        darkbg: '#080c14',
-                        cardbg: '#0e1524',
-                        bordercolor: '#1e293b'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            background-color: #070a10;
-            color: #e2e8f0;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-        .glow-gold {
-            box-shadow: 0 0 25px -5px rgba(234, 179, 8, 0.2);
-        }
-        .glow-yellow {
-            box-shadow: 0 0 25px 0px rgba(250, 204, 21, 0.35);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #0b0f19;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #273549;
-            border-radius: 3px;
-        }
-        .table-row-hover:hover {
-            background-color: rgba(30, 41, 59, 0.6);
-        }
-        @keyframes pulse-subtle {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .live-pulse {
-            animation: pulse-subtle 2s infinite ease-in-out;
-        }
-        .tab-btn.active {
-            background-color: #eab308;
-            color: #000000;
-            font-weight: 700;
-        }
-        .month-pill.active {
-            background-color: #38bdf8;
-            color: #000000;
-            font-weight: 700;
-        }
-        .excel-border {
-            border: 1px solid #334155;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="min-h-screen custom-scrollbar flex flex-col justify-between">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
 
-    <!-- TOP INSTITUTIONAL COMMAND HEADER -->
-    <header class="bg-gray-950/95 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50 px-4 lg:px-8 py-3">
-        <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-4">
-            
-            <!-- Branding & Title -->
-            <div class="flex items-center space-x-3.5">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                    <i class="fa-solid fa-coins text-black text-xl"></i>
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-50 px-4 py-3 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-slate-950 shadow-md shadow-amber-500/20">
+                    <i class="fa-solid fa-coins text-lg font-bold"></i>
                 </div>
                 <div>
-                    <div class="flex items-center space-x-2">
-                        <h1 class="text-lg font-black tracking-tight text-white flex items-center gap-2">
-                            GOLD PARITY CHECK &amp; SPREAD ARBITRAGE TERMINAL
-                            <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">PARITY DESK</span>
-                        </h1>
-                    </div>
-                    <div class="flex items-center space-x-3 text-xs text-gray-400">
-                        <span>MCX Futures &bull; All India Bullion (IBJA) Spot &bull; Gold ETF Parity</span>
-                        <span class="text-gray-600">|</span>
-                        <span class="text-emerald-400 font-medium" id="headerSessionDesc">Live Indian Bullion Feeds Active</span>
-                    </div>
+                    <h1 class="font-bold text-lg leading-tight flex items-center gap-2">
+                        MCX Gold Futures Spread & Percentage
+                        <span class="text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono">Closing Price Data</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Next Month Future &minus; Current Month Future = Spread & Spread Percentage</p>
                 </div>
             </div>
 
-            <!-- Quick Controls & Refresh -->
-            <div class="flex flex-wrap items-center gap-3">
-                <button onclick="openPhoneModal()" class="flex items-center space-x-1.5 bg-blue-950/80 hover:bg-blue-900 text-blue-300 hover:text-white font-medium text-xs px-3 py-1.5 rounded-lg border border-blue-700/60 transition shadow-sm">
-                    <i class="fa-solid fa-mobile-screen-button text-blue-400"></i>
-                    <span>Phone Access (QR)</span>
+            <!-- Header Status, Auto-Update & Sync -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                <!-- Download Backup Button -->
+                <a href="/api/download_backup" class="flex items-center space-x-1.5 text-xs bg-amber-950/60 border border-amber-500/40 text-amber-300 hover:text-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-amber-900/60 transition" title="Download full standalone project backup ZIP">
+                    <i class="fa-solid fa-download text-amber-400 text-xs"></i>
+                    <span class="font-semibold">Backup (.ZIP)</span>
+                </a>
+
+                <!-- Telegram Alerts Button -->
+                <button id="btnOpenTelegramModal" class="flex items-center space-x-1.5 text-xs bg-sky-950/60 border border-sky-500/40 text-sky-300 hover:text-white px-3 py-1.5 rounded-lg shadow-sm hover:bg-sky-900/60 transition" title="Configure Telegram notifications for spreads above 1.8%">
+                    <i class="fa-brands fa-telegram text-sky-400 text-sm"></i>
+                    <span class="font-semibold">Telegram Alerts (1.8%)</span>
+                    <span id="tgActiveIndicator" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                 </button>
 
-                <button onclick="exportCSV()" class="flex items-center space-x-1.5 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white font-medium text-xs px-3 py-1.5 rounded-lg border border-gray-700 transition">
-                    <i class="fa-solid fa-file-excel text-emerald-400"></i>
-                    <span>Export Excel/CSV</span>
-                </button>
-
-                <div class="flex items-center space-x-2">
-                    <button id="refreshBtn" onclick="fetchData(true)" class="flex items-center space-x-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow-md shadow-amber-500/20">
-                        <i id="refreshIcon" class="fa-solid fa-arrows-rotate text-xs"></i>
-                        <span>Refresh Feeds</span>
+                <!-- Auto-Update Status Badge -->
+                <div id="badgeAutoUpdate" class="flex items-center space-x-2 text-xs bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-3 py-1.5 rounded-lg shadow-sm" title="Auto-Update: Automatically fetches daily closing Bhavcopy & MCX stock position every night at market close (23:45 IST)">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="labelAutoUpdateStatus" class="font-semibold">Auto-Update: ON (23:45 IST)</span>
+                    <button id="btnCheckUpdateNow" class="ml-1 text-[11px] bg-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 px-2 py-0.5 rounded text-emerald-300 font-bold transition flex items-center gap-1 border border-emerald-500/30">
+                        <i id="iconCheckUpdate" class="fa-solid fa-arrows-rotate text-[10px]"></i>
+                        <span>Check Now</span>
                     </button>
-                    <div class="text-[11px] text-gray-400 bg-gray-900 px-2.5 py-1.5 rounded border border-gray-800 text-center min-w-[50px] font-mono">
-                        <span id="countdown" class="text-amber-400 font-bold">30s</span>
-                    </div>
+                </div>
+
+                <div class="hidden lg:flex items-center space-x-2 text-xs bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+                    <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                    <span id="headerDbStatus" class="text-slate-300">Loading MCX Data...</span>
                 </div>
             </div>
-
         </div>
     </header>
 
-    <!-- MAIN TERMINAL CONTENT -->
-    <main class="max-w-[1600px] w-full mx-auto px-4 lg:px-8 py-5 space-y-6 flex-grow">
+    <!-- Main Workspace -->
+    <div class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 space-y-6">
 
-        <!-- ============================================================== -->
-        <!-- PART 1: PARITY CHECK (GOLD SPOT & GOLD ETF) - MATCHING PHOTO   -->
-        <!-- ============================================================== -->
-        <section class="bg-gray-950 border border-gray-800 rounded-xl p-5 shadow-2xl relative overflow-hidden">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800 pb-3 mb-4">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-scale-balanced text-amber-400 text-lg"></i>
-                    <h2 class="text-base font-extrabold text-white tracking-wide uppercase">
-                        Part 1: Parity Check (Spot Benchmark &amp; ETF Spread)
-                    </h2>
+        <!-- Live MCX Market Watch & Real-Time Spread Ticker Panel -->
+        <div id="liveMarketPanel" class="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/30 border border-amber-500/40 rounded-xl p-4 shadow-xl space-y-3 relative overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                <div class="flex items-center space-x-2.5">
+                    <span class="relative flex h-3.5 w-3.5">
+                        <span id="livePingAnimate" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span id="liveDot" class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                    </span>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="font-bold text-sm text-slate-100 flex items-center gap-1.5">
+                                <i class="fa-solid fa-bolt text-amber-400"></i> MCX Live Intraday Market Watch & Spreads
+                            </h2>
+                            <span id="badgeMarketStatus" class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">MARKET OPEN</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Real-time Last Traded Price (LTP) feed from MCX Exchange during trading hours</p>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-3 text-xs text-gray-400">
-                    <span>Source: <strong class="text-amber-300" id="spotSourceLabel">All India Bullion (IBJA)</strong></span>
-                    <span class="text-gray-600">&bull;</span>
-                    <span>As on: <strong class="text-gray-200" id="spotDateLabel">--/--/----</strong></span>
+
+                <div class="flex items-center space-x-3 text-xs">
+                    <span id="liveLastUpdate" class="text-[11px] text-slate-400 font-mono bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                        <i class="fa-regular fa-clock text-amber-400 mr-1"></i><span id="lblLiveTime">Syncing live feed...</span>
+                    </span>
+                    <div class="flex items-center space-x-2 bg-slate-950 border border-slate-800 px-3 py-1 rounded-lg">
+                        <span class="text-slate-400 text-[11px]">Auto-Refresh (15s):</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="chkAutoLive" class="sr-only peer" checked>
+                            <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                    </div>
+                    <button id="btnRefreshLiveNow" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-lg transition text-xs flex items-center gap-1.5 shadow-sm">
+                        <i id="iconRefreshLive" class="fa-solid fa-arrows-rotate text-[11px]"></i>
+                        <span>Refresh Live</span>
+                    </button>
                 </div>
             </div>
 
-            <!-- ============================================================== -->
-            <!-- PROMINENT SPOT RATE USER INPUT CONTROL BAR                     -->
-            <!-- ============================================================== -->
-            <div class="bg-gradient-to-r from-amber-950/40 via-gray-900 to-gray-900 border-2 border-amber-500/50 rounded-xl p-4 mb-5 shadow-xl">
-                <div class="flex flex-wrap items-center justify-between gap-4">
-                    
-                    <!-- Left: Custom Spot Input Form -->
-                    <div class="flex flex-wrap items-center gap-3">
-                        <div class="flex items-center space-x-2.5">
-                            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 shadow-sm">
-                                <i class="fa-solid fa-pen-to-square text-lg"></i>
-                            </div>
-                            <div>
-                                <label for="customSpotInput" class="text-xs font-black text-amber-300 uppercase tracking-wider block">
-                                    Put / Edit Spot Rate (₹ / 10g):
-                                </label>
-                                <span class="text-[11px] text-gray-400">
-                                    Type your custom bullion / jeweler spot rate to recalculate all spreads
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Input with ₹ Prefix and Apply Button -->
-                        <div class="flex items-center bg-black/90 border-2 border-amber-500 rounded-lg overflow-hidden shadow-inner focus-within:ring-2 focus-within:ring-amber-400">
-                            <span class="px-3.5 py-2 text-amber-400 font-mono font-bold text-base bg-amber-500/10 border-r border-amber-500/40">₹</span>
-                            <input type="number" step="0.01" id="customSpotInput" placeholder="e.g. 140256.00"
-                                   onkeydown="if(event.key === 'Enter') applyOverrides()"
-                                   class="bg-transparent text-white font-mono font-black text-lg px-3 py-2 w-48 focus:outline-none placeholder-gray-600 text-right">
-                            <button onclick="applyOverrides()" class="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-3 transition flex items-center gap-1.5 shadow-md">
-                                <i class="fa-solid fa-check"></i>
-                                <span>Apply Rate</span>
-                            </button>
-                        </div>
-
-                        <!-- 1-Click Reset to Live IBJA -->
-                        <button id="resetSpotBtn" onclick="clearCustomSpot()" title="Revert to live IBJA scraping" class="px-3.5 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg text-xs font-semibold border border-gray-700 transition flex items-center gap-1.5">
-                            <i class="fa-solid fa-rotate-left text-amber-400"></i>
-                            <span>Reset to Live IBJA</span>
+            <!-- Live Control Bar: View Type, Spread Depth & Mode -->
+            <div class="flex flex-wrap items-center justify-between gap-2.5 pt-1 pb-1 text-xs border-b border-slate-800/60">
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- View Type: Consolidated Matrix (Photo 3) vs Live Cards (Photo 1) -->
+                    <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
+                        <button type="button" id="btnLiveViewMatrix" class="px-3 py-1 rounded-md font-bold transition flex items-center gap-1.5 bg-amber-500 text-slate-950 shadow-sm">
+                            <i class="fa-solid fa-table-cells"></i>
+                            <span>Consolidated Matrix (Photo 3)</span>
+                        </button>
+                        <button type="button" id="btnLiveViewCards" class="px-3 py-1 rounded-md font-semibold text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <span>Live Cards (Photo 1)</span>
                         </button>
                     </div>
 
-                    <!-- Right: Quick-Fill Presets for Instant 1-Click Values -->
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-[11px] text-gray-400 font-sans font-medium mr-1">Quick Presets:</span>
-                        <button onclick="setQuickSpot(140256)" class="px-3 py-1.5 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/50 text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-sm">
-                            <i class="fa-solid fa-file-invoice-dollar text-yellow-400"></i>
-                            <span>₹1,40,256.00</span>
-                            <span class="text-[10px] text-yellow-400/80 font-sans font-normal">(Excel Sheet)</span>
+                    <!-- Spread Filter: Latest 2 Spreads vs All Spreads -->
+                    <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
+                        <button type="button" id="btnLiveFilterFront2" class="px-3 py-1 rounded-md font-bold transition flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            <i class="fa-solid fa-bolt"></i>
+                            <span>Latest 2 Spreads</span>
                         </button>
-                        <button onclick="setQuickSpot(liveIbjaRate999)" id="quickBtn999" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-xs font-mono transition">
-                            IBJA 999: <span id="quickVal999" class="text-amber-300 font-bold">₹--</span>
-                        </button>
-                        <button onclick="setQuickSpot(liveIbjaRate995)" id="quickBtn995" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-xs font-mono transition">
-                            IBJA 995: <span id="quickVal995" class="text-amber-300 font-bold">₹--</span>
+                        <button type="button" id="btnLiveFilterAll" class="px-3 py-1 rounded-md font-semibold text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-list-ul"></i>
+                            <span>All Cycles</span>
                         </button>
                     </div>
 
-                </div>
-
-                <!-- Dynamic Status Sub-Bar -->
-                <div class="mt-3 pt-2.5 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-                    <div id="spotStatusContainer" class="flex items-center space-x-2">
-                        <span id="spotStatusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 live-pulse"></span>
-                        <span id="spotStatusText" class="text-emerald-400 font-bold">Live All India Bullion (IBJA) Feed Active</span>
-                    </div>
-                    <div class="flex items-center space-x-3 text-[11px] text-gray-400 font-sans">
-                        <span>⚡ Spot rate dynamically drives all 3-month futures ROI% and parity spreads</span>
-                        <button onclick="toggleOverrideBox()" class="text-amber-400 hover:text-amber-300 underline font-mono text-[11px]">
-                            More Settings (ETF / Purity)
+                    <!-- Live Spread Mode Toggle -->
+                    <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
+                        <button type="button" id="btnLiveModeCross" class="px-3 py-1 rounded-md font-bold transition flex items-center gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                            <i class="fa-solid fa-shuffle"></i>
+                            <span>Cross-Instrument Matrix</span>
+                        </button>
+                        <button type="button" id="btnLiveModeCalendar" class="px-3 py-1 rounded-md font-semibold text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar-days"></i>
+                            <span>Calendar Spreads</span>
                         </button>
                     </div>
                 </div>
-            </div>
 
-            <!-- Parity Check Table matching the Excel photo -->
-            <div class="overflow-x-auto custom-scrollbar">
-                <table class="w-full text-left border-collapse text-sm font-mono">
-                    <thead>
-                        <tr class="bg-gray-900/90 text-gray-300 font-bold border-b border-gray-700 text-xs uppercase tracking-wider">
-                            <th class="py-2.5 px-4 w-44">Parity Check</th>
-                            <th class="py-2.5 px-4 w-56 text-right">Price (₹ / 10g)</th>
-                            <th class="py-2.5 px-4 w-56 text-right">Point Spread (₹)</th>
-                            <th class="py-2.5 px-4 w-56 text-right">Spread (%)</th>
-                            <th class="py-2.5 px-4">Market Note / Quick Inputs</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-800">
-                        
-                        <!-- Row 1: Gold Spot -->
-                        <tr class="bg-gray-900/40 hover:bg-gray-900/70 transition">
-                            <td class="py-3.5 px-4 font-bold text-white text-base flex items-center space-x-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                                <span>Gold Spot</span>
-                                <span id="spotRowBadge" class="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">LIVE IBJA</span>
-                            </td>
-                            <td class="py-3.5 px-4 text-right font-black text-2xl text-white">
-                                <span id="topSpotPrice">₹1,41,622.00</span>
-                            </td>
-                            <td class="py-3.5 px-4 text-right text-gray-500 font-sans text-xs">
-                                Benchmark Base
-                            </td>
-                            <td class="py-3.5 px-4 text-right text-gray-500 font-sans text-xs">
-                                0.00%
-                            </td>
-                            <td class="py-3.5 px-4 text-xs font-sans text-gray-400">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <button onclick="setQuickSpot(liveIbjaRate999)" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-[11px] transition">
-                                        999 Pure: <strong id="subSpot999" class="text-amber-300">₹--</strong>
-                                    </button>
-                                    <button onclick="setQuickSpot(liveIbjaRate995)" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-[11px] transition">
-                                        995 (MCX Delivery): <strong id="subSpot995" class="text-amber-300">₹--</strong>
-                                    </button>
-                                    <button onclick="setQuickSpot(liveIbjaRate916)" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-[11px] transition">
-                                        916 (22K): <strong id="subSpot916" class="text-gray-300">₹--</strong>
-                                    </button>
-                                    <button onclick="focusSpotInput()" class="text-amber-400 hover:text-amber-300 text-[11px] font-bold underline ml-1">
-                                        ✏️ Edit Spot Rate
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-
-                        <!-- Row 2: Gold ETF (Yellow highlight exactly matching photo!) -->
-                        <tr class="bg-gray-900/40 hover:bg-gray-900/70 transition">
-                            <td class="py-3.5 px-4 font-bold text-white text-base flex items-center space-x-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
-                                <span>Gold ETF</span>
-                            </td>
-                            <td class="py-3.5 px-4 text-right font-bold text-lg text-gray-200">
-                                <span id="topEtfPrice">₹1,18,250.00</span>
-                            </td>
-                            <!-- Points Diff (Yellow Box from user photo) -->
-                            <td class="py-3.5 px-4 text-right font-black text-xl bg-yellow-400 text-black border-l border-yellow-500/50 shadow-inner">
-                                <span id="topEtfDiffPoints">22,006.00</span>
-                            </td>
-                            <!-- Pct Diff (Yellow Box from user photo) -->
-                            <td class="py-3.5 px-4 text-right font-black text-xl bg-yellow-400 text-black border-r border-yellow-500/50 shadow-inner">
-                                <span id="topEtfDiffPct">15.68988136%</span>
-                            </td>
-                            <td class="py-3.5 px-4 text-xs font-sans text-gray-400">
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-gray-300" id="etfSourceBadge">GOLDBEES (NSE) &bull; 10g Basis</span>
-                                    <button onclick="toggleOverrideBox()" class="text-amber-400 hover:text-amber-300 text-[11px] underline">
-                                        Override ETF Price
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Collapsible Price Override Box (for ETF & Purity) -->
-            <div id="overrideBox" class="hidden mt-4 pt-4 border-t border-gray-800 bg-gray-900/60 p-3 rounded-lg text-xs">
-                <div class="flex flex-wrap items-center gap-4">
-                    <div class="space-y-1">
-                        <label class="text-gray-400 font-medium">Custom Gold ETF (₹/10g Override):</label>
-                        <div class="flex items-center space-x-1">
-                            <input type="number" id="customEtfInput" placeholder="Live GOLDBEES" class="bg-gray-950 border border-gray-700 text-white rounded px-2.5 py-1 text-xs font-mono w-48">
-                            <button onclick="applyOverrides()" class="px-2.5 py-1 bg-amber-500 text-black font-bold rounded text-xs">Apply</button>
-                            <button onclick="setQuickEtf(118250)" class="px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded text-xs border border-yellow-500/40 font-mono">₹1,18,250 (Sheet)</button>
-                            <button onclick="clearCustomEtf()" class="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs">Reset</button>
+                <!-- Secondary options: Month tabs & Basis -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Month View Selector (Photo 3: Select Month View: NOV | DEC | JAN | Consolidated) -->
+                    <div id="liveMonthTabsContainer" class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                        <span class="text-[11px] text-slate-400 font-semibold px-1.5">Select Month View:</span>
+                        <div id="liveMonthTabs" class="flex items-center gap-1">
+                            <button type="button" class="live-month-tab active px-2.5 py-0.5 rounded text-xs font-bold bg-amber-500 text-slate-950" data-month="consolidated">Consolidated</button>
                         </div>
                     </div>
-                    <div class="space-y-1">
-                        <label class="text-gray-400 font-medium">Default Live Spot Purity:</label>
-                        <select id="puritySelect" onchange="fetchData(false)" class="bg-gray-950 border border-gray-700 text-white rounded px-2 py-1 text-xs">
-                            <option value="gold_999" selected>Gold 999 (24K Pure)</option>
-                            <option value="gold_995">Gold 995 (MCX Delivery)</option>
-                            <option value="gold_916">Gold 916 (22K)</option>
+
+                    <!-- Weight Basis for Cross Spread -->
+                    <div id="liveBasisWrapper" class="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 text-[11px] font-semibold">Basis:</span>
+                        <select id="selectLiveBasis" class="bg-transparent text-amber-400 font-semibold text-xs focus:outline-none">
+                            <option value="10g" class="bg-slate-900 text-slate-200">Per 10 Grams (MCX ₹/10g Standard)</option>
+                            <option value="1g" class="bg-slate-900 text-slate-200">Per 1 Gram (₹/g)</option>
+                            <option value="raw" class="bg-slate-900 text-slate-200">Raw Quoted Nominal</option>
                         </select>
                     </div>
                 </div>
             </div>
-        </section>
 
-        <!-- ============================================================== -->
-        <!-- PART 2: 3-MONTH SPOT-TO-FUTURES PARITY TABLE (MATCHING PHOTO)  -->
-        <!-- ============================================================== -->
-        <section class="bg-gray-950 border border-gray-800 rounded-xl p-5 shadow-2xl space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800 pb-3">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-table-cells text-amber-400 text-lg"></i>
-                    <h2 class="text-base font-extrabold text-white tracking-wide uppercase">
-                        Part 2: Spot-to-Futures Bifurcation Across 3 Months (Current, Next, Next-to-Next)
-                    </h2>
-                </div>
-                <div class="text-xs text-gray-400 flex items-center space-x-2">
-                    <span class="px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800/40 font-mono text-[11px]">
-                        Formula: ROI% = (Futures - Spot) / Spot &times; 100
-                    </span>
+            <!-- View 1: Consolidated Matrix Table (Photo 3 Style) -->
+            <div id="liveMatrixContainer" class="overflow-x-auto pt-1">
+                <div class="py-4 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                    <div class="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Loading Live Consolidated Matrix...</span>
                 </div>
             </div>
 
-            <!-- Parity Table exactly matching the structure in user photo -->
-            <div class="overflow-x-auto custom-scrollbar">
-                <table class="w-full text-left border-collapse text-sm font-mono border border-gray-700">
-                    <thead>
-                        <tr class="bg-gray-900 text-white font-bold text-xs uppercase tracking-wider border-b border-gray-700 text-center">
-                            <th class="py-3 px-4 text-left border-r border-gray-700 w-44">Instrument</th>
-                            <th class="py-3 px-4 border-r border-gray-700 bg-gray-900/90 text-amber-300" id="thMonth1Name">MONTH 1</th>
-                            <th class="py-3 px-4 border-r border-gray-700 bg-amber-950/30 text-amber-400" id="thMonth1Roi">ROI %</th>
-                            <th class="py-3 px-4 border-r border-gray-700 bg-gray-900/90 text-amber-300" id="thMonth2Name">MONTH 2</th>
-                            <th class="py-3 px-4 border-r border-gray-700 bg-amber-950/30 text-amber-400" id="thMonth2Roi">ROI %</th>
-                            <th class="py-3 px-4 border-r border-gray-700 bg-gray-900/90 text-amber-300" id="thMonth3Name">MONTH 3</th>
-                            <th class="py-3 px-4 bg-amber-950/30 text-amber-400" id="thMonth3Roi">ROI %</th>
+            <!-- View 2: Live Spreads Cards Grid (Photo 1 Style) -->
+            <div id="liveCardsContainer" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                <div class="col-span-full py-4 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                    <div class="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Connecting to live MCX market watch feed...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Mode Switcher Bar (Calendar Spread vs Cross-Contract Spread) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1">Spread Mode:</span>
+                <button type="button" id="tabModeCalendar" class="mode-tab active px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20">
+                    <i class="fa-solid fa-calendar-days"></i> Calendar Spread (Month-to-Month)
+                </button>
+                <button type="button" id="tabModeCross" class="mode-tab px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800">
+                    <i class="fa-solid fa-shuffle text-amber-400"></i> Cross-Contract Spread (Petal / Guinea / GoldM)
+                </button>
+            </div>
+            
+            <div id="crossBasisContainer" class="hidden flex items-center space-x-2 text-xs">
+                <span class="text-slate-400 font-semibold">Weight Basis:</span>
+                <select id="selectCrossBasis" class="bg-slate-950 border border-slate-700 text-amber-400 font-semibold rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-amber-500">
+                    <option value="10g">Per 10 Grams (MCX ₹/10g Standard)</option>
+                    <option value="1g">Per 1 Gram (₹/g)</option>
+                    <option value="raw">Raw Quoted Nominal</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Cross-Contract Quick Selector Bar (Visible in Cross Mode) -->
+        <div id="crossPairBar" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg space-y-2">
+            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Select Inter-Commodity Pair:</div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" class="btn-cross-pair active px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-amber-500 text-slate-950 shadow-sm" data-sym1="GOLDM" data-sym2="GOLDPETAL" data-formula="leg1_minus_leg2">
+                    GOLDM &minus; GOLDPETAL
+                </button>
+                <button type="button" class="btn-cross-pair px-3.5 py-1.5 rounded-lg text-xs font-semibold transition bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800" data-sym1="GOLDPETAL" data-sym2="GOLDM" data-formula="leg1_minus_leg2">
+                    GOLDPETAL &minus; GOLDM
+                </button>
+                <button type="button" class="btn-cross-pair px-3.5 py-1.5 rounded-lg text-xs font-semibold transition bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800" data-sym1="GOLDPETAL" data-sym2="GOLDGUINEA" data-formula="leg1_minus_leg2">
+                    GOLDPETAL &minus; GOLDGUINEA
+                </button>
+                <button type="button" class="btn-cross-pair px-3.5 py-1.5 rounded-lg text-xs font-semibold transition bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800" data-sym1="GOLDGUINEA" data-sym2="GOLDPETAL" data-formula="leg1_minus_leg2">
+                    GOLDGUINEA &minus; GOLDPETAL
+                </button>
+                <button type="button" class="btn-cross-pair px-3.5 py-1.5 rounded-lg text-xs font-semibold transition bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800" data-sym1="GOLDGUINEA" data-sym2="GOLDM" data-formula="leg1_minus_leg2">
+                    GOLDGUINEA &minus; GOLDM
+                </button>
+                <button type="button" class="btn-cross-pair px-3.5 py-1.5 rounded-lg text-xs font-semibold transition bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800" data-sym1="GOLDM" data-sym2="GOLDGUINEA" data-formula="leg1_minus_leg2">
+                    GOLDM &minus; GOLDGUINEA
+                </button>
+            </div>
+        </div>
+
+        <!-- Top Commodity Selector Bar (Visible in Calendar Mode) -->
+        <div id="calendarCommodityBar" class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                
+                <!-- Commodity Selector Pills -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1">Commodity:</span>
+                    <button type="button" class="btn-commodity active px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" data-symbol="GOLDM">
+                        <i class="fa-solid fa-cube"></i> GOLDM (Gold Mini - 100g)
+                    </button>
+                    <button type="button" class="btn-commodity px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800" data-symbol="GOLDPETAL">
+                        <i class="fa-solid fa-leaf text-amber-400"></i> GOLDPETAL (Gold Petal - 1g)
+                    </button>
+                    <button type="button" class="btn-commodity px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800" data-symbol="GOLDGUINEA">
+                        <i class="fa-solid fa-circle-dot text-amber-400"></i> GOLDGUINEA (Gold Guinea - 8g)
+                    </button>
+                    <button type="button" class="btn-commodity px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800" data-symbol="GOLD">
+                        <i class="fa-solid fa-bars-progress text-amber-400"></i> GOLD (Standard 1kg)
+                    </button>
+                </div>
+
+                <!-- Formula Indicator Badge -->
+                <div class="text-xs font-mono bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-300 flex items-center gap-2">
+                    <span class="text-amber-400 font-bold">Formula:</span>
+                    <span id="labelFormulaTop">Next Month Close &minus; Current Month Close = Spread (₹)</span>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Section 1: The 14 Consecutive Monthly Spread Pairs Table (In Simple Format) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-950/60">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-calendar-week text-amber-400"></i>
+                    <h2 class="font-bold text-sm text-slate-100">Monthly Consecutive Spread Pairs (Past 1 Year)</h2>
+                    <span id="badgePairsCount" class="text-xs bg-slate-800 text-amber-400 px-2 py-0.5 rounded-full font-mono font-semibold">14 Pairs</span>
+                </div>
+                <div class="flex items-center space-x-3 text-xs">
+                    <button id="btnSortPairs" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-down-short-wide text-amber-400"></i>
+                        <span id="pairsSortLabel">Sort: Oldest &rarr; Newest</span>
+                    </button>
+                    <button id="btnViewAllRolling" class="text-amber-400 hover:underline font-semibold flex items-center gap-1">
+                        <span>View Continuous 1-Year (All Pairs)</span> &rarr;
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto max-h-[380px]">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-800">
+                        <tr>
+                            <th class="py-2.5 px-3">Monthly Spread Pair</th>
+                            <th class="py-2.5 px-3">Near Month Contract</th>
+                            <th class="py-2.5 px-3 text-right">Near Close (₹)</th>
+                            <th class="py-2.5 px-3">Next Month Contract</th>
+                            <th class="py-2.5 px-3 text-right">Next Close (₹)</th>
+                            <th class="py-2.5 px-3 text-right font-bold text-amber-400">Spread Points (₹)</th>
+                            <th class="py-2.5 px-3 text-right font-bold text-emerald-400">Spread Percentage (%)</th>
+                            <th class="py-2.5 px-3 text-right">Avg Spread (₹)</th>
+                            <th class="py-2.5 px-3 text-right">Avg Spread %</th>
+                            <th class="py-2.5 px-3 text-center">Trading Days</th>
+                            <th class="py-2.5 px-3 text-center">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="parityTableBody" class="divide-y divide-gray-700 text-xs">
-                        <!-- Populated dynamically: Gold petal, Gold guinea, Gold M -->
+                    <tbody id="monthlyPairsBody" class="divide-y divide-slate-800/60 font-mono">
                         <tr>
-                            <td colspan="7" class="py-8 text-center text-gray-500 font-sans">
-                                <i class="fa-solid fa-spinner fa-spin text-xl text-amber-400 mb-2"></i>
-                                <p>Loading 3-month futures parity check matrix...</p>
+                            <td colspan="11" class="text-center py-8 text-slate-500 font-sans">
+                                Loading monthly spread pairs...
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <div class="text-[11px] text-gray-400 flex flex-wrap items-center justify-between gap-2 pt-1 font-sans">
-                <span>&bull; All futures prices normalized to <strong>₹ per 10 grams</strong> for direct mathematical parity with All India Bullion Spot.</span>
-                <span class="text-gray-300">Positive ROI = Futures trading at a premium (Contango) &bull; Negative ROI = Futures at discount (Backwardation)</span>
-            </div>
-        </section>
+        </div>
 
-        <!-- ============================================================== -->
-        <!-- PART 3: CROSS-INSTRUMENT SPREADS (POINTS & PERCENTAGE)        -->
-        <!-- ============================================================== -->
-        <section class="bg-gray-950 border border-gray-800 rounded-xl p-5 shadow-2xl space-y-5">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800 pb-3">
+        <!-- Section 2: Clean Graph Chart (with Full Zoom In & Zoom Out) -->
+        <div id="chartSection" class="bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden scroll-mt-20">
+            <!-- Chart Header & View Tabs -->
+            <div class="flex flex-wrap items-center justify-between border-b border-slate-800 px-4 py-2.5 bg-slate-950/60 gap-3">
                 <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-arrows-split-up-and-left text-purple-400 text-lg"></i>
+                    <span id="activeChartTitle" class="text-xs font-bold text-slate-200">GOLDM Spread Chart</span>
+                    <span id="activePairBadge" class="text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-mono">Continuous 1-Year</span>
+                </div>
+
+                <!-- View Switcher Tabs -->
+                <div class="flex space-x-1" id="chartViewTabs">
+                    <button class="chart-tab active py-1.5 px-3 text-xs font-semibold rounded-lg transition flex items-center gap-1.5" data-view="points">
+                        <i class="fa-solid fa-coins text-amber-400"></i> Spread (Points / ₹)
+                    </button>
+                    <button class="chart-tab py-1.5 px-3 text-xs font-semibold rounded-lg transition flex items-center gap-1.5" data-view="percentage">
+                        <i class="fa-solid fa-percent text-emerald-400"></i> Spread Percentage (%)
+                    </button>
+                    <button class="chart-tab py-1.5 px-3 text-xs font-semibold rounded-lg transition flex items-center gap-1.5" data-view="dual">
+                        <i class="fa-solid fa-chart-line text-purple-400"></i> Dual View (Points & %)
+                    </button>
+                    <button class="chart-tab py-1.5 px-3 text-xs font-semibold rounded-lg transition flex items-center gap-1.5" data-view="underlying">
+                        <i class="fa-solid fa-layer-group text-sky-400"></i> Underlying Closing Prices
+                    </button>
+                    <button class="chart-tab py-1.5 px-3 text-xs font-semibold rounded-lg transition flex items-center gap-1.5" data-view="inventory">
+                        <i class="fa-solid fa-warehouse text-amber-400"></i> Spread vs MCX Stock Position
+                    </button>
+                </div>
+
+                <!-- Zoom and Timeframe Quick Control Pills -->
+                <div class="flex items-center space-x-2">
+                    <div class="inline-flex rounded-md shadow-sm border border-slate-800 bg-slate-950 p-0.5 text-xs">
+                        <button type="button" class="btn-timeframe px-2 py-1 text-slate-400 hover:text-slate-100 rounded" data-range="1m">1M</button>
+                        <button type="button" class="btn-timeframe px-2 py-1 text-slate-400 hover:text-slate-100 rounded" data-range="3m">3M</button>
+                        <button type="button" class="btn-timeframe px-2 py-1 text-slate-400 hover:text-slate-100 rounded" data-range="6m">6M</button>
+                        <button type="button" class="btn-timeframe active px-2 py-1 text-amber-400 font-semibold bg-slate-800 rounded" data-range="1y">1Y</button>
+                        <button type="button" class="btn-timeframe px-2 py-1 text-slate-400 hover:text-slate-100 rounded" data-range="all">All</button>
+                    </div>
+
+                    <div class="flex items-center space-x-1 pl-2 border-l border-slate-800">
+                        <button id="btnZoomIn" title="Zoom In (+)" class="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded flex items-center justify-center text-xs transition">
+                            <i class="fa-solid fa-magnifying-glass-plus"></i>
+                        </button>
+                        <button id="btnZoomOut" title="Zoom Out (-)" class="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded flex items-center justify-center text-xs transition">
+                            <i class="fa-solid fa-magnifying-glass-minus"></i>
+                        </button>
+                        <button id="btnResetZoom" title="Reset Zoom" class="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded flex items-center justify-center text-xs transition">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Viewport -->
+            <div class="p-4 relative min-h-[460px]">
+                <div id="chartLoadingOverlay" class="hidden absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-20 flex flex-col items-center justify-center space-y-2">
+                    <div class="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-xs font-medium text-slate-300">Loading Spread Closing Data...</span>
+                </div>
+
+                <div id="mainSpreadChart" class="w-full h-[460px]"></div>
+            </div>
+        </div>
+
+        <!-- Section 3: Daily Numbers Table -->
+        <div id="sectionDailyTable" class="bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden scroll-mt-20">
+            <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-950/60">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-table-list text-amber-400"></i>
+                    <h3 class="font-bold text-sm text-slate-100">Daily Spread & Percentage Data (Closing Prices)</h3>
+                    <span id="badgeRowCount" class="text-xs bg-slate-800 text-amber-400 px-2 py-0.5 rounded-full font-mono font-semibold">0 Days</span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <!-- Pair Selector Dropdown for Daily Data -->
+                    <div class="flex items-center space-x-1.5">
+                        <label for="selectDailyPair" class="text-xs text-slate-400 font-semibold">Pair / Scope:</label>
+                        <select id="selectDailyPair" class="bg-slate-950 border border-slate-700 text-amber-400 font-semibold rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500 max-w-[230px]">
+                            <option value="rolling">Full 1-Year Continuous (All Pairs)</option>
+                        </select>
+                    </div>
+
+                    <!-- Sort Toggle: Oldest to New or New to Old -->
+                    <button id="btnToggleSort" title="Toggle sorting between Oldest to New or New to Old" class="text-xs flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-md transition shadow-sm font-medium">
+                        <i id="sortIcon" class="fa-solid fa-arrow-down-short-wide text-amber-400"></i>
+                        <span id="sortOrderLabel">Sort: Oldest &rarr; Newest</span>
+                    </button>
+
+                    <!-- Filter Search Input -->
+                    <div class="relative">
+                        <input type="text" id="inpTableSearch" placeholder="Filter by date (YYYY-MM-DD)..." class="bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-amber-500 text-slate-200 placeholder-slate-500 w-44">
+                        <i class="fa-solid fa-search absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
+                    </div>
+
+                    <!-- Export CSV Button -->
+                    <button id="btnExportCsv" class="text-xs flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-md transition shadow-sm font-medium">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Pair & Date Range Status Banner -->
+            <div id="activeDailyBanner" class="px-4 py-2 bg-slate-950/80 border-b border-slate-800/80 text-xs flex flex-wrap items-center justify-between text-slate-300 gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span>Currently Viewing: <strong id="bannerPairName" class="text-amber-300 font-semibold">Full 1-Year Continuous Spread</strong></span>
+                    <span id="bannerDateRange" class="text-slate-400 font-mono text-[11px]">(2025-08-29 to 2026-11-05)</span>
+                </div>
+                <div class="text-[11px] text-slate-400 font-mono">
+                    Formula: <span class="text-emerald-400">Next Month Close &minus; Current Month Close</span>
+                </div>
+            </div>
+
+            <!-- Table Body -->
+            <div class="overflow-x-auto max-h-[460px]">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-800 z-10 select-none">
+                        <tr>
+                            <th class="py-2.5 px-3 cursor-pointer hover:text-amber-400" data-col="date">Date <i class="fa-solid fa-sort text-[9px] ml-0.5"></i></th>
+                            <th class="py-2.5 px-3">Spread Pair / Cycle</th>
+                            <th class="py-2.5 px-3" id="thLeg1">Near Month Contract</th>
+                            <th class="py-2.5 px-3 text-right" id="thClose1">Near Close (₹)</th>
+                            <th class="py-2.5 px-3" id="thLeg2">Next Month Contract</th>
+                            <th class="py-2.5 px-3 text-right" id="thClose2">Next Close (₹)</th>
+                            <th class="py-2.5 px-3 text-right font-bold text-amber-400 cursor-pointer hover:text-amber-300" data-col="spread">Spread Points (₹) <i class="fa-solid fa-sort text-[9px] ml-0.5"></i></th>
+                            <th class="py-2.5 px-3 text-right font-bold text-emerald-400 cursor-pointer hover:text-emerald-300" data-col="spread_pct">Spread Percentage (%) <i class="fa-solid fa-sort text-[9px] ml-0.5"></i></th>
+                            <th class="py-2.5 px-3 text-right text-amber-300 font-bold cursor-pointer hover:text-amber-200" data-col="inventory_qty">MCX Vault Stock (Inventory) <i class="fa-solid fa-warehouse text-[9px] ml-0.5"></i></th>
+                            <th class="py-2.5 px-3 text-right">Daily Change (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dailyTableBody" class="divide-y divide-slate-800/60 font-mono">
+                        <tr>
+                            <td colspan="10" class="text-center py-8 text-slate-500 font-sans">
+                                Loading daily closing spread data...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification for Auto-Update -->
+    <div id="toastNotification" class="hidden fixed bottom-6 right-6 bg-slate-900 border border-emerald-500/50 text-slate-100 px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center space-x-3 text-xs max-w-md transition-all duration-300">
+        <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold border border-emerald-500/40">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div>
+            <p id="toastTitle" class="font-bold text-emerald-300 text-xs">MCX Daily Data Updated</p>
+            <p id="toastMessage" class="text-slate-400 text-[11px]">Latest closing prices and vault inventory synchronized.</p>
+        </div>
+    </div>
+
+    <!-- Telegram Alert Settings Modal -->
+    <div id="telegramModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-4 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center">
+                        <i class="fa-brands fa-telegram text-base"></i>
+                    </div>
                     <div>
-                        <h2 class="text-base font-extrabold text-white tracking-wide uppercase">
-                            Part 3: Cross-Instrument Spread Analysis (Points &amp; Percentage)
-                        </h2>
-                        <p class="text-xs text-gray-400 font-sans">
-                            Spread in points (Net ₹ Value) and percentage (%) between Gold Petal, Gold Guinea, and Gold M.
-                        </p>
+                        <h3 class="font-bold text-sm text-slate-100">Telegram Spread Alert Configuration</h3>
+                        <p class="text-[11px] text-slate-400">Receive instant alerts when any monthly spread exceeds 1.8%</p>
                     </div>
                 </div>
-
-                <!-- Month Selector for Deep-Dive -->
-                <div class="flex items-center space-x-1.5 text-xs">
-                    <span class="text-gray-400 font-medium mr-1 font-sans">Select Month View:</span>
-                    <button onclick="setCrossMonthTab(0, this)" class="month-pill active px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-500 text-black transition" id="crossMonthBtn0">Month 1</button>
-                    <button onclick="setCrossMonthTab(1, this)" class="month-pill px-3 py-1.5 rounded-lg text-xs font-mono font-medium bg-gray-900 text-gray-300 hover:text-white transition" id="crossMonthBtn1">Month 2</button>
-                    <button onclick="setCrossMonthTab(2, this)" class="month-pill px-3 py-1.5 rounded-lg text-xs font-mono font-medium bg-gray-900 text-gray-300 hover:text-white transition" id="crossMonthBtn2">Month 3</button>
-                    <button onclick="setCrossMonthTab('ALL', this)" class="month-pill px-3 py-1.5 rounded-lg text-xs font-sans font-medium bg-gray-900 text-gray-300 hover:text-white transition" id="crossMonthBtnAll">Consolidated</button>
-                </div>
+                <button id="btnCloseTelegramModal" class="w-7 h-7 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg flex items-center justify-center text-sm transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
-            <!-- 3A: Month Deep-Dive Cards: The 6 Explicit Formulas Requested -->
-            <div id="crossCardsContainer" class="space-y-4">
-                
-                <!-- Arbitrage Opportunity Banner for this Month -->
-                <div id="monthArbitrageBanner" class="p-4 rounded-xl bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-amber-500/30 flex flex-wrap items-center justify-between gap-4">
-                    <div class="space-y-1">
-                        <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5 font-sans">
-                            <i class="fa-solid fa-bolt"></i>
-                            <span>Optimal Cross-Instrument Arbitrage Pair (<span id="bannerMonthLabel">--</span>)</span>
-                        </div>
-                        <div class="text-base font-bold text-white font-mono" id="bannerTradeAction">
-                            --
-                        </div>
-                        <div class="text-xs text-gray-400 font-sans" id="bannerTradeDesc">
-                            --
-                        </div>
+            <!-- Modal Form -->
+            <div class="p-5 space-y-4 text-xs">
+                <!-- Status & Enable Switch -->
+                <div class="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <div>
+                        <div class="font-semibold text-slate-200">Alert Notifications</div>
+                        <div class="text-[11px] text-slate-400">Automatically send message at market close (23:45 IST)</div>
                     </div>
-                    <div class="flex items-baseline space-x-4 bg-black/40 px-4 py-2.5 rounded-lg border border-gray-800 font-mono">
-                        <div>
-                            <div class="text-[10px] text-gray-400 font-sans uppercase">Captured Spread</div>
-                            <div class="text-xl font-black text-emerald-400" id="bannerSpreadPts">+0.00 pts</div>
-                        </div>
-                        <div class="border-l border-gray-700 pl-4">
-                            <div class="text-[10px] text-gray-400 font-sans uppercase">Spread %</div>
-                            <div class="text-xl font-black text-emerald-400" id="bannerSpreadPct">+0.00%</div>
-                        </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="inpTgEnabled" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
+
+                <!-- Bot Token -->
+                <div>
+                    <label for="inpTgBotToken" class="block font-semibold text-slate-300 mb-1">
+                        Telegram Bot Token:
+                    </label>
+                    <input type="text" id="inpTgBotToken" placeholder="e.g. 7123456789:AAHxyzABCdef123..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-sky-500">
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Obtain for free from <a href="https://t.me/BotFather" target="_blank" class="text-sky-400 hover:underline">@BotFather</a> on Telegram. Send <code>/newbot</code>.
+                    </p>
+                </div>
+
+                <!-- Chat ID -->
+                <div>
+                    <label for="inpTgChatId" class="block font-semibold text-slate-300 mb-1">
+                        Your Telegram Chat ID:
+                    </label>
+                    <input type="text" id="inpTgChatId" placeholder="e.g. 123456789 or @yourchannel" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-sky-500">
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Get your personal Chat ID from <a href="https://t.me/userinfobot" target="_blank" class="text-sky-400 hover:underline">@userinfobot</a> on Telegram.
+                    </p>
+                </div>
+
+                <!-- Threshold Percentage -->
+                <div>
+                    <label for="inpTgThreshold" class="block font-semibold text-slate-300 mb-1">
+                        Trigger Threshold Percentage (% a month):
+                    </label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" step="0.1" id="inpTgThreshold" value="1.8" class="w-32 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-amber-400 font-bold font-mono text-xs focus:outline-none focus:border-amber-500">
+                        <span class="text-slate-400">% (Spread above this will trigger Telegram alert)</span>
                     </div>
                 </div>
 
-                <!-- 6 Explicit Comparison Cards in 2 columns -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5" id="crossCardsGrid">
-                    <!-- Cards populated dynamically -->
+                <!-- Last Checked & Alert Status -->
+                <div class="p-2.5 bg-slate-950/60 rounded-lg border border-slate-800/80 text-[11px] text-slate-400 flex items-center justify-between">
+                    <div>Last Alert Sent: <strong id="lblLastAlertSent" class="text-slate-300 font-mono">—</strong></div>
+                    <button type="button" id="btnTriggerScanNow" class="text-sky-400 hover:underline font-semibold flex items-center gap-1">
+                        <i class="fa-solid fa-bolt text-[10px]"></i> Check & Alert Now
+                    </button>
                 </div>
 
-                <!-- 3x3 Cross-Rate Matrix -->
-                <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-4 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-bold text-white uppercase tracking-wider font-sans flex items-center gap-1.5">
-                            <i class="fa-solid fa-table text-purple-400"></i>
-                            <span>3&times;3 Pairwise Cross-Spread Matrix (<span id="matrixMonthLabel">--</span>)</span>
-                        </h3>
-                        <span class="text-[10px] text-gray-400 font-sans">Row Instrument Minus Column Instrument</span>
-                    </div>
-                    <div class="overflow-x-auto custom-scrollbar">
-                        <table class="w-full text-center border-collapse text-xs font-mono border border-gray-800">
-                            <thead>
-                                <tr class="bg-gray-950 text-gray-300 font-semibold border-b border-gray-800">
-                                    <th class="py-2 px-3 text-left border-r border-gray-800 w-36">Base \ Compare</th>
-                                    <th class="py-2 px-3 border-r border-gray-800 text-amber-300">Gold petal</th>
-                                    <th class="py-2 px-3 border-r border-gray-800 text-amber-300">Gold guinea</th>
-                                    <th class="py-2 px-3 text-amber-300">Gold M</th>
-                                </tr>
-                            </thead>
-                            <tbody id="crossMatrixBody" class="divide-y divide-gray-800/80">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
+                <!-- Feedback status message -->
+                <div id="tgStatusFeedback" class="hidden p-2.5 rounded-lg text-xs font-medium"></div>
             </div>
 
-            <!-- 3B: Consolidated 3-Month Cross Table (Shown when Consolidated pill clicked or side-by-side) -->
-            <div id="consolidatedTableContainer" class="hidden space-y-3">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-bold text-white uppercase tracking-wider font-sans flex items-center gap-1.5">
-                        <i class="fa-solid fa-layer-group text-blue-400"></i>
-                        <span>Consolidated Cross-Spread Comparison Across All 3 Months</span>
-                    </h3>
-                </div>
-                <div class="overflow-x-auto custom-scrollbar">
-                    <table class="w-full text-left border-collapse text-xs font-mono border border-gray-700">
-                        <thead>
-                            <tr class="bg-gray-900 text-white font-bold text-[11px] uppercase tracking-wider border-b border-gray-700 text-center">
-                                <th class="py-2.5 px-4 text-left border-r border-gray-700 w-52">Comparison Pair</th>
-                                <th class="py-2.5 px-3 border-r border-gray-700 bg-gray-900/90 text-amber-300" id="thConsM1Pts">M1 Points (₹)</th>
-                                <th class="py-2.5 px-3 border-r border-gray-700 bg-amber-950/30 text-amber-400" id="thConsM1Pct">M1 Spread %</th>
-                                <th class="py-2.5 px-3 border-r border-gray-700 bg-gray-900/90 text-amber-300" id="thConsM2Pts">M2 Points (₹)</th>
-                                <th class="py-2.5 px-3 border-r border-gray-700 bg-amber-950/30 text-amber-400" id="thConsM2Pct">M2 Spread %</th>
-                                <th class="py-2.5 px-3 border-r border-gray-700 bg-gray-900/90 text-amber-300" id="thConsM3Pts">M3 Points (₹)</th>
-                                <th class="py-2.5 px-3 bg-amber-950/30 text-amber-400" id="thConsM3Pct">M3 Spread %</th>
-                            </tr>
-                        </thead>
-                        <tbody id="consolidatedTableBody" class="divide-y divide-gray-700 text-xs">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </section>
-
-        <!-- ============================================================== -->
-        <!-- PART 4: FULL MCX SPREAD MATRIX & ADVANCED WORKSTATION TABS     -->
-        <!-- ============================================================== -->
-        <section class="space-y-4">
-            
-            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between gap-3">
+                <button type="button" id="btnSendTestTg" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold rounded-lg transition flex items-center gap-1.5 text-xs">
+                    <i class="fa-solid fa-paper-plane text-sky-400"></i>
+                    <span>Send Test Message</span>
+                </button>
                 <div class="flex items-center space-x-2">
-                    <button onclick="switchExtendedTab('tab-all-spreads', this)" class="tab-btn active px-3.5 py-1.5 rounded-t-lg text-xs font-bold transition flex items-center space-x-1.5">
-                        <i class="fa-solid fa-list-check"></i>
-                        <span>All MCX Gold Futures Contracts (Full Matrix)</span>
+                    <button type="button" id="btnCancelTelegram" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg transition text-xs">
+                        Cancel
                     </button>
-                    <button onclick="switchExtendedTab('tab-calendar-spreads', this)" class="tab-btn px-3.5 py-1.5 rounded-t-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition flex items-center space-x-1.5">
-                        <i class="fa-solid fa-arrows-rotate"></i>
-                        <span>Calendar Spreads (Roll Arbitrage)</span>
+                    <button type="button" id="btnSaveTelegramSettings" class="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-lg transition shadow-md shadow-sky-500/20 text-xs">
+                        Save Settings
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Sub-Tab A: Full Matrix -->
-            <div id="tab-all-spreads" class="extended-tab-content bg-gray-950 border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
-                <div class="px-5 py-3 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3 bg-gray-900/50">
-                    <span class="font-bold text-white text-xs uppercase tracking-wide">ALL ACTIVE MCX CONTRACTS NORMALIZED TO ₹/10G</span>
-                    <span class="text-xs text-gray-400" id="fullMatrixCount">27 Contracts</span>
-                </div>
-                <div class="overflow-x-auto custom-scrollbar">
-                    <table class="w-full text-left border-collapse text-xs font-mono">
-                        <thead>
-                            <tr class="bg-gray-900/90 text-gray-400 uppercase tracking-wider font-semibold border-b border-gray-800 text-[11px]">
-                                <th class="py-2.5 px-3">Symbol</th>
-                                <th class="py-2.5 px-3">Expiry / DTE</th>
-                                <th class="py-2.5 px-3 text-right">LTP (Quoting Unit)</th>
-                                <th class="py-2.5 px-3 text-right text-amber-300">Norm Price (₹/10g)</th>
-                                <th class="py-2.5 px-3 text-right">Spread (₹/10g)</th>
-                                <th class="py-2.5 px-3 text-right">Spread % (ROI)</th>
-                                <th class="py-2.5 px-3 text-right text-emerald-400">Net Ann. ROI (% p.a.)</th>
-                                <th class="py-2.5 px-3 text-right">Volume</th>
-                                <th class="py-2.5 px-3 text-right">OI</th>
-                                <th class="py-2.5 px-3 text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="fullMatrixBody" class="divide-y divide-gray-800/60 text-[11px]">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Sub-Tab B: Calendar Spreads -->
-            <div id="tab-calendar-spreads" class="extended-tab-content hidden bg-gray-950 border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
-                <div class="px-5 py-3 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3 bg-gray-900/50">
-                    <span class="font-bold text-white text-xs uppercase tracking-wide">PAIRWISE CALENDAR ROLL SPREADS</span>
-                    <span class="text-xs text-purple-300">Roll Yields (% p.a.)</span>
-                </div>
-                <div class="overflow-x-auto custom-scrollbar">
-                    <table class="w-full text-left border-collapse text-xs font-mono">
-                        <thead>
-                            <tr class="bg-gray-900/90 text-gray-400 uppercase tracking-wider font-semibold border-b border-gray-800 text-[11px]">
-                                <th class="py-2.5 px-4">Family</th>
-                                <th class="py-2.5 px-3">Near Contract</th>
-                                <th class="py-2.5 px-3">Far Contract</th>
-                                <th class="py-2.5 px-3 text-right">Near (₹/10g)</th>
-                                <th class="py-2.5 px-3 text-right">Far (₹/10g)</th>
-                                <th class="py-2.5 px-3 text-right">Roll Spread (₹/10g)</th>
-                                <th class="py-2.5 px-3 text-right">&Delta; Days</th>
-                                <th class="py-2.5 px-3 text-right text-purple-300">Ann. Roll Yield</th>
-                                <th class="py-2.5 px-3 text-center">Roll Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="calendarTableBody" class="divide-y divide-gray-800/60 text-[11px]">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </section>
-
-    </main>
-
-    <!-- FOOTER -->
-    <footer class="bg-gray-950 border-t border-gray-800 px-6 py-4 text-center text-xs text-gray-500 font-sans">
-        <p>Gold Spot / FUT Spread Arbitrage Terminal &bull; Market data strictly extracted from Multi Commodity Exchange of India (MCX) and All India Bullion (IBJA).</p>
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 bg-slate-950/60 py-3 px-4 text-center text-xs text-slate-500">
+        MCX Gold Futures Spread & Percentage Terminal &bull; Daily Official Closing Bhavcopy &bull; Antigravity Suite
     </footer>
 
-    <!-- JAVASCRIPT APPLICATION CODE -->
-    <script>
-        let globalData = null;
-        let selectedCrossMonthIdx = 0; // 0=Month 1, 1=Month 2, 2=Month 3, 'ALL'=Consolidated
-        let countdownSeconds = 30;
-        let countdownTimer = null;
-
-        function formatCurrency(val) {
-            if (val === undefined || val === null || isNaN(val)) return '₹0.00';
-            return '₹' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        function formatPoints(val) {
-            if (val === undefined || val === null || isNaN(val)) return '0.00';
-            const num = parseFloat(val);
-            const prefix = num >= 0 ? '+' : '';
-            return prefix + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        function formatPercent(val) {
-            if (val === undefined || val === null || isNaN(val)) return '0.00%';
-            const num = parseFloat(val);
-            const prefix = num >= 0 ? '+' : '';
-            return prefix + num.toFixed(2) + '%';
-        }
-
-        function formatNumber(val) {
-            if (val === undefined || val === null || isNaN(val)) return '0';
-            return parseFloat(val).toLocaleString('en-IN');
-        }
-
-        let liveIbjaRate999 = 0;
-        let liveIbjaRate995 = 0;
-        let liveIbjaRate916 = 0;
-
-        function showToast(msg) {
-            const toast = document.getElementById('toastNotification');
-            const toastMsg = document.getElementById('toastMessage');
-            if (toast && toastMsg) {
-                toastMsg.innerText = msg;
-                toast.classList.remove('translate-y-24', 'opacity-0');
-                toast.classList.add('translate-y-0', 'opacity-100');
-                setTimeout(() => {
-                    toast.classList.remove('translate-y-0', 'opacity-100');
-                    toast.classList.add('translate-y-24', 'opacity-0');
-                }, 2800);
-            }
-        }
-
-        function focusSpotInput() {
-            const inp = document.getElementById('customSpotInput');
-            if (inp) {
-                inp.focus();
-                inp.select();
-            }
-        }
-
-        function setQuickSpot(val) {
-            if (!val || isNaN(val)) return;
-            const num = parseFloat(val);
-            document.getElementById('customSpotInput').value = num;
-            localStorage.setItem('custom_gold_spot', num);
-            fetchData(false);
-            showToast(`Spot rate set to ₹${num.toLocaleString('en-IN', {minimumFractionDigits: 2})}`);
-        }
-
-        function setQuickEtf(val) {
-            if (!val || isNaN(val)) return;
-            const num = parseFloat(val);
-            document.getElementById('customEtfInput').value = num;
-            localStorage.setItem('custom_gold_etf', num);
-            fetchData(false);
-            showToast(`Gold ETF set to ₹${num.toLocaleString('en-IN', {minimumFractionDigits: 2})}`);
-        }
-
-        function toggleOverrideBox() {
-            const el = document.getElementById('overrideBox');
-            el.classList.toggle('hidden');
-        }
-
-        function clearCustomSpot() {
-            document.getElementById('customSpotInput').value = '';
-            localStorage.removeItem('custom_gold_spot');
-            fetchData(false);
-            showToast("Reset to live All India Bullion (IBJA) benchmark rate");
-        }
-
-        function clearCustomEtf() {
-            if (document.getElementById('customEtfInput')) {
-                document.getElementById('customEtfInput').value = '';
-            }
-            localStorage.removeItem('custom_gold_etf');
-            fetchData(false);
-            showToast("Reset to live Gold ETF (GOLDBEES) rate");
-        }
-
-        function applyOverrides() {
-            const spotInput = document.getElementById('customSpotInput');
-            const etfInput = document.getElementById('customEtfInput');
-            const spotVal = spotInput ? spotInput.value.trim() : '';
-            const etfVal = etfInput ? etfInput.value.trim() : '';
-
-            if (spotVal && !isNaN(spotVal) && parseFloat(spotVal) > 0) {
-                localStorage.setItem('custom_gold_spot', spotVal);
-                showToast(`Custom Spot Rate ₹${parseFloat(spotVal).toLocaleString('en-IN', {minimumFractionDigits: 2})} applied!`);
-            } else {
-                localStorage.removeItem('custom_gold_spot');
-            }
-
-            if (etfVal && !isNaN(etfVal) && parseFloat(etfVal) > 0) {
-                localStorage.setItem('custom_gold_etf', etfVal);
-            } else {
-                localStorage.removeItem('custom_gold_etf');
-            }
-
-            fetchData(false);
-        }
-
-        function exportCSV() {
-            const purity = document.getElementById('puritySelect').value;
-            const customSpot = document.getElementById('customSpotInput').value;
-            const customEtf = document.getElementById('customEtfInput').value;
-            
-            let url = `/api/export-csv?purity=${purity}`;
-            if (customSpot) url += `&custom_spot=${customSpot}`;
-            if (customEtf) url += `&custom_etf=${customEtf}`;
-            window.location.href = url;
-        }
-
-        function switchExtendedTab(tabId, btn) {
-            document.querySelectorAll('.extended-tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                b.classList.remove('active', 'bg-amber-500', 'text-black', 'font-bold');
-                b.classList.add('bg-gray-900', 'text-gray-400');
-            });
-            document.getElementById(tabId)?.classList.remove('hidden');
-            btn.classList.add('active', 'bg-amber-500', 'text-black', 'font-bold');
-            btn.classList.remove('bg-gray-900', 'text-gray-400');
-        }
-
-        function setCrossMonthTab(idx, btn) {
-            selectedCrossMonthIdx = idx;
-            document.querySelectorAll('.month-pill').forEach(b => {
-                b.classList.remove('active', 'bg-amber-500', 'text-black', 'font-bold');
-                b.classList.add('bg-gray-900', 'text-gray-300');
-            });
-            btn.classList.add('active', 'bg-amber-500', 'text-black', 'font-bold');
-            btn.classList.remove('bg-gray-900', 'text-gray-300');
-
-            if (idx === 'ALL') {
-                document.getElementById('crossCardsContainer').classList.add('hidden');
-                document.getElementById('consolidatedTableContainer').classList.remove('hidden');
-            } else {
-                document.getElementById('consolidatedTableContainer').classList.add('hidden');
-                document.getElementById('crossCardsContainer').classList.remove('hidden');
-                renderCrossMonthView();
-            }
-        }
-
-        async function fetchData(force = false) {
-            const refreshIcon = document.getElementById('refreshIcon');
-            if (refreshIcon) refreshIcon.classList.add('fa-spin');
-
-            const purity = document.getElementById('puritySelect').value;
-            const customSpot = document.getElementById('customSpotInput').value;
-            const customEtf = document.getElementById('customEtfInput').value;
-
-            try {
-                const params = new URLSearchParams({
-                    force: force ? 'true' : 'false',
-                    purity: purity,
-                    expiry_filter: 'ALL'
-                });
-                if (customSpot) params.append('custom_spot', customSpot);
-                if (customEtf) params.append('custom_etf', customEtf);
-
-                const response = await fetch('/api/data?' + params.toString());
-                const res = await response.json();
-
-                if (res.success && res.data) {
-                    globalData = res.data;
-                    renderTerminal(globalData);
-                } else {
-                    console.error("API error:", res.error);
-                }
-            } catch (err) {
-                console.error("Fetch failed:", err);
-            } finally {
-                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
-                resetCountdown();
-            }
-        }
-
-        function renderTerminal(data) {
-            const pc = data.parity_check;
-            if (!pc) return;
-
-            // Cache live IBJA pure rates
-            liveIbjaRate999 = (data.spot_info && data.spot_info.rates && data.spot_info.rates.gold_999) || 0;
-            liveIbjaRate995 = (data.spot_info && data.spot_info.rates && data.spot_info.rates.gold_995) || 0;
-            liveIbjaRate916 = (data.spot_info && data.spot_info.rates && data.spot_info.rates.gold_916) || 0;
-
-            if (document.getElementById('quickVal999')) {
-                document.getElementById('quickVal999').innerText = formatCurrency(liveIbjaRate999);
-            }
-            if (document.getElementById('quickVal995')) {
-                document.getElementById('quickVal995').innerText = formatCurrency(liveIbjaRate995);
-            }
-
-            const activeSpot = pc.gold_spot;
-            const customSpotInp = document.getElementById('customSpotInput');
-            const customSpotVal = customSpotInp ? customSpotInp.value.trim() : '';
-            const isCustomSpot = customSpotVal && !isNaN(customSpotVal) && parseFloat(customSpotVal) > 0;
-
-            document.getElementById('topSpotPrice').innerText = formatCurrency(activeSpot);
-            document.getElementById('spotDateLabel').innerText = data.spot_info.as_on_date || '--';
-            document.getElementById('subSpot999').innerText = formatCurrency(liveIbjaRate999);
-            document.getElementById('subSpot995').innerText = formatCurrency(liveIbjaRate995);
-            document.getElementById('subSpot916').innerText = formatCurrency(liveIbjaRate916);
-
-            // Update Status Banner and Badge
-            const statusDot = document.getElementById('spotStatusDot');
-            const statusText = document.getElementById('spotStatusText');
-            const rowBadge = document.getElementById('spotRowBadge');
-
-            if (isCustomSpot) {
-                const diffLive = activeSpot - liveIbjaRate999;
-                const diffStr = diffLive >= 0 ? `+${formatCurrency(diffLive)} above live 999` : `${formatCurrency(Math.abs(diffLive))} below live 999`;
-                
-                if (statusDot) statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
-                if (statusText) {
-                    statusText.className = 'text-amber-400 font-bold';
-                    statusText.innerHTML = `🟡 MANUAL SPOT ACTIVE: ${formatCurrency(activeSpot)} / 10g <span class="text-gray-400 font-normal">(${diffStr} &bull; Live IBJA 999: ${formatCurrency(liveIbjaRate999)})</span>`;
-                }
-                if (rowBadge) {
-                    rowBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500 text-black shadow-sm';
-                    rowBadge.innerText = 'CUSTOM SPOT ACTIVE';
-                }
-            } else {
-                if (statusDot) statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 live-pulse';
-                if (statusText) {
-                    statusText.className = 'text-emerald-400 font-bold';
-                    statusText.innerHTML = `🟢 LIVE IBJA FEED ACTIVE: ${formatCurrency(activeSpot)} / 10g <span class="text-gray-400 font-normal">(All India Bullion Official Fixing)</span>`;
-                }
-                if (rowBadge) {
-                    rowBadge.className = 'text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-800';
-                    rowBadge.innerText = 'LIVE IBJA';
-                }
-                if (customSpotInp) {
-                    customSpotInp.placeholder = activeSpot ? activeSpot.toFixed(2) : '140256.00';
-                }
-            }
-
-            // Gold ETF Row (Yellow highlight)
-            document.getElementById('topEtfPrice').innerText = formatCurrency(pc.gold_etf.price_10g);
-            document.getElementById('topEtfDiffPoints').innerText = parseFloat(pc.gold_etf.diff_points).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById('topEtfDiffPct').innerText = parseFloat(pc.gold_etf.diff_pct).toFixed(8) + '%';
-            document.getElementById('etfSourceBadge').innerText = `${pc.gold_etf.symbol} (${pc.gold_etf.source}) &bull; 10g Basis`;
-
-            // ==========================================
-            // PART 2: 3-MONTH PARITY TABLE RENDER
-            // ==========================================
-            const mLabels = pc.active_3_months || ['M1', 'M2', 'M3'];
-            document.getElementById('thMonth1Name').innerText = mLabels[0] || 'MONTH 1';
-            document.getElementById('thMonth1Roi').innerText = `${mLabels[0]} ROI %`;
-            document.getElementById('thMonth2Name').innerText = mLabels[1] || 'MONTH 2';
-            document.getElementById('thMonth2Roi').innerText = `${mLabels[1]} ROI %`;
-            document.getElementById('thMonth3Name').innerText = mLabels[2] || 'MONTH 3';
-            document.getElementById('thMonth3Roi').innerText = `${mLabels[2]} ROI %`;
-
-            // Update month button labels in Part 3
-            document.getElementById('crossMonthBtn0').innerText = mLabels[0];
-            document.getElementById('crossMonthBtn1').innerText = mLabels[1];
-            document.getElementById('crossMonthBtn2').innerText = mLabels[2];
-
-            // Render Part 2 table rows
-            const tbody2 = document.getElementById('parityTableBody');
-            tbody2.innerHTML = pc.parity_rows.map(row => {
-                const m1 = row.months[0] || {price: 0, roi_pct: 0, spread_pts: 0};
-                const m2 = row.months[1] || {price: 0, roi_pct: 0, spread_pts: 0};
-                const m3 = row.months[2] || {price: 0, roi_pct: 0, spread_pts: 0};
-
-                const roi1Color = m1.roi_pct >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-                const roi2Color = m2.roi_pct >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-                const roi3Color = m3.roi_pct >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-
-                return `
-                    <tr class="hover:bg-gray-900/60 transition">
-                        <td class="py-3 px-4 font-bold text-white text-sm border-r border-gray-700 bg-gray-950">
-                            ${row.name}
-                        </td>
-                        <!-- Month 1 -->
-                        <td class="py-3 px-4 text-right font-bold text-gray-200 border-r border-gray-700">
-                            ${formatCurrency(m1.price)}
-                            <div class="text-[10px] text-gray-400 font-sans font-normal">Spread: ${formatPoints(m1.spread_pts)}</div>
-                        </td>
-                        <td class="py-3 px-4 text-right text-sm border-r border-gray-700 bg-amber-950/20 ${roi1Color}">
-                            ${m1.roi_pct.toFixed(2)}%
-                        </td>
-
-                        <!-- Month 2 -->
-                        <td class="py-3 px-4 text-right font-bold text-gray-200 border-r border-gray-700">
-                            ${formatCurrency(m2.price)}
-                            <div class="text-[10px] text-gray-400 font-sans font-normal">Spread: ${formatPoints(m2.spread_pts)}</div>
-                        </td>
-                        <td class="py-3 px-4 text-right text-sm border-r border-gray-700 bg-amber-950/20 ${roi2Color}">
-                            ${m2.roi_pct.toFixed(2)}%
-                        </td>
-
-                        <!-- Month 3 -->
-                        <td class="py-3 px-4 text-right font-bold text-gray-200 border-r border-gray-700">
-                            ${formatCurrency(m3.price)}
-                            <div class="text-[10px] text-gray-400 font-sans font-normal">Spread: ${formatPoints(m3.spread_pts)}</div>
-                        </td>
-                        <td class="py-3 px-4 text-right text-sm bg-amber-950/20 ${roi3Color}">
-                            ${m3.roi_pct.toFixed(2)}%
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            // ==========================================
-            // PART 3: CROSS-INSTRUMENT SPREADS RENDER
-            // ==========================================
-            renderCrossMonthView();
-            renderConsolidatedCrossTable(pc.consolidated_cross_table, mLabels);
-
-            // ==========================================
-            // PART 4: FULL MATRIX & CALENDAR RENDER
-            // ==========================================
-            renderFullMatrix(data.spreads || []);
-            renderCalendarTable(data.calendar_spreads || []);
-        }
-
-        function renderCrossMonthView() {
-            if (!globalData || !globalData.parity_check) return;
-            const pc = globalData.parity_check;
-            const mLabels = pc.active_3_months || ['M1', 'M2', 'M3'];
-            const activeMonthLabel = mLabels[selectedCrossMonthIdx] || mLabels[0];
-            const mData = pc.cross_spreads_by_month[activeMonthLabel];
-            if (!mData) return;
-
-            document.getElementById('bannerMonthLabel').innerText = activeMonthLabel;
-            document.getElementById('matrixMonthLabel').innerText = activeMonthLabel;
-
-            // Arbitrage Banner
-            if (mData.best_trade) {
-                const bt = mData.best_trade;
-                document.getElementById('bannerTradeAction').innerHTML = 
-                    `<span class="text-emerald-400">BUY ${bt.cheapest}</span> (${formatCurrency(bt.cheapest_price)}) &bull; <span class="text-rose-400">SELL ${bt.expensive}</span> (${formatCurrency(bt.expensive_price)})`;
-                document.getElementById('bannerTradeDesc').innerText = 
-                    `${bt.expensive} is trading at a premium of ${formatPoints(bt.spread_pts)} points (${formatPercent(bt.spread_pct)}) over ${bt.cheapest}. Hedged cross-commodity spread.`;
-                document.getElementById('bannerSpreadPts').innerText = formatPoints(bt.spread_pts) + ' pts';
-                document.getElementById('bannerSpreadPct').innerText = formatPercent(bt.spread_pct);
-            }
-
-            // 6 Explicit Comparison Cards:
-            // e.g. Gold M - Gold Petal = Net Value & %
-            const cardsGrid = document.getElementById('crossCardsGrid');
-            cardsGrid.innerHTML = mData.pairs.map(p => {
-                const isPos = p.net_points >= 0;
-                const badgeColor = isPos ? 'bg-emerald-950 text-emerald-300 border-emerald-800/40' : 'bg-rose-950 text-rose-300 border-rose-800/40';
-                const ptsColor = isPos ? 'text-emerald-400' : 'text-rose-400';
-
-                return `
-                    <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 space-y-2.5 hover:border-gray-700 transition">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="font-bold text-white uppercase tracking-wider font-mono text-[11px]">${p.title}</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-mono border ${badgeColor}">
-                                ${p.trade_action}
-                            </span>
-                        </div>
-                        
-                        <div class="flex items-baseline justify-between pt-1 border-t border-gray-800">
-                            <div>
-                                <div class="text-[10px] uppercase text-gray-400 font-sans">Net Value (Points)</div>
-                                <div class="text-2xl font-black ${ptsColor} font-mono">
-                                    ${formatPoints(p.net_points)}
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-[10px] uppercase text-gray-400 font-sans">Spread Percentage</div>
-                                <div class="text-2xl font-black ${ptsColor} font-mono">
-                                    ${formatPercent(p.pct)}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="text-[10px] text-gray-400 font-mono flex justify-between pt-1 border-t border-gray-800/60">
-                            <span>${p.short_a}: <strong class="text-gray-300">${formatCurrency(p.price_a)}</strong></span>
-                            <span>${p.short_b}: <strong class="text-gray-300">${formatCurrency(p.price_b)}</strong></span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            // 3x3 Matrix
-            const pPetal = mData.prices.petal;
-            const pGuinea = mData.prices.guinea;
-            const pGoldM = mData.prices.goldm;
-
-            const calcCell = (a, b) => {
-                if (a === b) return `<span class="text-gray-500 font-bold">0.00 (0.00%)</span>`;
-                const pts = a - b;
-                const pct = b > 0 ? (pts / b) * 100 : 0;
-                const col = pts >= 0 ? 'text-emerald-400' : 'text-rose-400';
-                return `<span class="${col} font-bold">${formatPoints(pts)} (${formatPercent(pct)})</span>`;
-            };
-
-            const tbodyMat = document.getElementById('crossMatrixBody');
-            tbodyMat.innerHTML = `
-                <tr class="hover:bg-gray-900/50">
-                    <td class="py-2.5 px-3 text-left font-bold text-white border-r border-gray-800">Gold petal</td>
-                    <td class="py-2.5 px-3 border-r border-gray-800 bg-gray-950/40">${calcCell(pPetal, pPetal)}</td>
-                    <td class="py-2.5 px-3 border-r border-gray-800">${calcCell(pPetal, pGuinea)}</td>
-                    <td class="py-2.5 px-3">${calcCell(pPetal, pGoldM)}</td>
-                </tr>
-                <tr class="hover:bg-gray-900/50">
-                    <td class="py-2.5 px-3 text-left font-bold text-white border-r border-gray-800">Gold guinea</td>
-                    <td class="py-2.5 px-3 border-r border-gray-800">${calcCell(pGuinea, pPetal)}</td>
-                    <td class="py-2.5 px-3 border-r border-gray-800 bg-gray-950/40">${calcCell(pGuinea, pGuinea)}</td>
-                    <td class="py-2.5 px-3">${calcCell(pGuinea, pGoldM)}</td>
-                </tr>
-                <tr class="hover:bg-gray-900/50">
-                    <td class="py-2.5 px-3 text-left font-bold text-white border-r border-gray-800">Gold M</td>
-                    <td class="py-2.5 px-3 border-r border-gray-800">${calcCell(pGoldM, pPetal)}</td>
-                    <td class="py-2.5 px-3 border-r border-gray-800">${calcCell(pGoldM, pGuinea)}</td>
-                    <td class="py-2.5 px-3 bg-gray-950/40">${calcCell(pGoldM, pGoldM)}</td>
-                </tr>
-            `;
-        }
-
-        function renderConsolidatedCrossTable(consolidatedList, mLabels) {
-            document.getElementById('thConsM1Pts').innerText = `${mLabels[0]} Points (₹)`;
-            document.getElementById('thConsM1Pct').innerText = `${mLabels[0]} Spread %`;
-            document.getElementById('thConsM2Pts').innerText = `${mLabels[1]} Points (₹)`;
-            document.getElementById('thConsM2Pct').innerText = `${mLabels[1]} Spread %`;
-            document.getElementById('thConsM3Pts').innerText = `${mLabels[2]} Points (₹)`;
-            document.getElementById('thConsM3Pct').innerText = `${mLabels[2]} Spread %`;
-
-            const tbody = document.getElementById('consolidatedTableBody');
-            tbody.innerHTML = consolidatedList.map(item => {
-                const m1 = item.months[0] || {net_points: 0, pct: 0};
-                const m2 = item.months[1] || {net_points: 0, pct: 0};
-                const m3 = item.months[2] || {net_points: 0, pct: 0};
-
-                const col1 = m1.net_points >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-                const col2 = m2.net_points >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-                const col3 = m3.net_points >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-
-                return `
-                    <tr class="hover:bg-gray-900/60 transition">
-                        <td class="py-3 px-4 font-bold text-white border-r border-gray-700 bg-gray-950">
-                            ${item.title}
-                        </td>
-                        <!-- Month 1 -->
-                        <td class="py-3 px-3 text-right border-r border-gray-700 ${col1}">
-                            ${formatPoints(m1.net_points)}
-                        </td>
-                        <td class="py-3 px-3 text-right border-r border-gray-700 bg-amber-950/20 ${col1}">
-                            ${formatPercent(m1.pct)}
-                        </td>
-
-                        <!-- Month 2 -->
-                        <td class="py-3 px-3 text-right border-r border-gray-700 ${col2}">
-                            ${formatPoints(m2.net_points)}
-                        </td>
-                        <td class="py-3 px-3 text-right border-r border-gray-700 bg-amber-950/20 ${col2}">
-                            ${formatPercent(m2.pct)}
-                        </td>
-
-                        <!-- Month 3 -->
-                        <td class="py-3 px-3 text-right border-r border-gray-700 ${col3}">
-                            ${formatPoints(m3.net_points)}
-                        </td>
-                        <td class="py-3 px-3 text-right bg-amber-950/20 ${col3}">
-                            ${formatPercent(m3.pct)}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        function renderFullMatrix(items) {
-            document.getElementById('fullMatrixCount').innerText = `${items.length} Contracts`;
-            const tbody = document.getElementById('fullMatrixBody');
-            tbody.innerHTML = items.map(c => {
-                const spreadCol = c.spread_10g >= 0 ? 'text-emerald-400' : 'text-rose-400';
-                return `
-                    <tr class="hover:bg-gray-900/50">
-                        <td class="py-2 px-3 font-bold text-white">${c.symbol}</td>
-                        <td class="py-2 px-3 text-gray-300">${c.expiry} <span class="text-[10px] text-gray-500">(${c.dte}d)</span></td>
-                        <td class="py-2 px-3 text-right text-gray-300">${formatCurrency(c.ltp)}</td>
-                        <td class="py-2 px-3 text-right font-bold text-amber-300">${formatCurrency(c.fut_price_10g)}</td>
-                        <td class="py-2 px-3 text-right font-bold ${spreadCol}">${formatPoints(c.spread_10g)}</td>
-                        <td class="py-2 px-3 text-right ${spreadCol}">${formatPercent(c.spread_pct)}</td>
-                        <td class="py-2 px-3 text-right font-bold text-emerald-400">${c.ann_net_yield.toFixed(2)}%</td>
-                        <td class="py-2 px-3 text-right text-gray-400">${formatNumber(c.volume)}</td>
-                        <td class="py-2 px-3 text-right text-gray-400">${formatNumber(c.oi)}</td>
-                        <td class="py-2 px-3 text-center">
-                            <span class="text-[10px] px-2 py-0.5 rounded font-bold ${c.spread_10g >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}">
-                                ${c.strategy}
-                            </span>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        function renderCalendarTable(calItems) {
-            const tbody = document.getElementById('calendarTableBody');
-            tbody.innerHTML = calItems.map(c => {
-                return `
-                    <tr class="hover:bg-gray-900/50">
-                        <td class="py-2 px-4 font-bold text-white">${c.family}</td>
-                        <td class="py-2 px-3 text-amber-400 font-semibold">${c.near_contract}</td>
-                        <td class="py-2 px-3 text-blue-400 font-semibold">${c.far_contract}</td>
-                        <td class="py-2 px-3 text-right text-gray-300">${formatCurrency(c.near_price_10g)}</td>
-                        <td class="py-2 px-3 text-right text-gray-300">${formatCurrency(c.far_price_10g)}</td>
-                        <td class="py-2 px-3 text-right font-bold ${c.spread_10g >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatPoints(c.spread_10g)}</td>
-                        <td class="py-2 px-3 text-right text-gray-400 font-sans">${c.delta_days}d</td>
-                        <td class="py-2 px-3 text-right font-bold text-purple-300">${formatPercent(c.ann_roll_yield)}</td>
-                        <td class="py-2 px-3 text-center">
-                            <span class="text-[10px] font-mono text-gray-300 bg-gray-900 px-2 py-1 rounded border border-gray-800">${c.action_roll}</span>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        function resetCountdown() {
-            clearInterval(countdownTimer);
-            countdownSeconds = 30;
-            document.getElementById('countdown').innerText = countdownSeconds + 's';
-            countdownTimer = setInterval(() => {
-                countdownSeconds--;
-                if (countdownSeconds <= 0) {
-                    fetchData(true);
-                } else {
-                    document.getElementById('countdown').innerText = countdownSeconds + 's';
-                }
-            }, 1000);
-        }
-
-        // Phone Access Modal
-        const wifiLocalUrl = "http://192.168.68.106:5055";
-        const permanentCloudUrl = "https://gold-spread-dashboard.onrender.com";
-        let activePhoneMode = 'cloud'; // 'cloud' or 'wifi'
-
-        function setPhoneTab(mode) {
-            activePhoneMode = mode;
-            const btnCloud = document.getElementById('phoneTabCloud');
-            const btnWifi = document.getElementById('phoneTabWifi');
-            const qrImg = document.getElementById('qrCodeImg');
-            const phoneUrlText = document.getElementById('phoneUrlText');
-            const noteText = document.getElementById('phoneNoteText');
-
-            if (mode === 'cloud') {
-                btnCloud.className = "flex-1 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20";
-                btnWifi.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition flex items-center justify-center gap-1.5";
-                phoneUrlText.innerText = permanentCloudUrl;
-                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(permanentCloudUrl)}`;
-                noteText.innerHTML = `<strong>☁️ Permanent 24/7 Cloud:</strong> Hosted on a cloud server. <strong>Works completely independent of your laptop!</strong> You can turn off, close, or shut down your laptop and this link will still work on your phone anywhere in the world.`;
-            } else {
-                btnWifi.className = "flex-1 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20";
-                btnCloud.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition flex items-center justify-center gap-1.5";
-                phoneUrlText.innerText = wifiLocalUrl;
-                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(wifiLocalUrl)}`;
-                noteText.innerHTML = `<strong>📶 Local Wi-Fi:</strong> Connect your phone to the same Wi-Fi network as this laptop for direct local testing.`;
-            }
-        }
-
-        async function openPhoneModal() {
-            const modal = document.getElementById('phoneModal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                setPhoneTab(activePhoneMode);
-            }
-        }
-
-        function closePhoneModal() {
-            const modal = document.getElementById('phoneModal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        function copyPhoneUrl() {
-            const targetUrl = activePhoneMode === 'cloud' ? permanentCloudUrl : wifiLocalUrl;
-            navigator.clipboard.writeText(targetUrl).then(() => {
-                showToast("URL copied: " + targetUrl);
-            });
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedSpot = localStorage.getItem('custom_gold_spot');
-            if (savedSpot) {
-                const inp = document.getElementById('customSpotInput');
-                if (inp) inp.value = savedSpot;
-            }
-            const savedEtf = localStorage.getItem('custom_gold_etf');
-            if (savedEtf) {
-                const etfInp = document.getElementById('customEtfInput');
-                if (etfInp) etfInp.value = savedEtf;
-            }
-            fetchData(true);
-        });
-    </script>
-
-    <!-- Phone Access Modal -->
-    <div id="phoneModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="bg-gray-950 border border-gray-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
-            <button onclick="closePhoneModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                    <i class="fa-solid fa-mobile-screen-button text-xl"></i>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-white">Open Dashboard on Your Phone</h3>
-                    <p class="text-xs text-gray-400 font-sans">Live Gold Arbitrage &bull; Real-Time Parity Check</p>
-                </div>
-            </div>
-
-            <!-- Tab Switcher: Mobile 4G vs Local Wi-Fi -->
-            <div class="flex items-center bg-gray-900 p-1 rounded-xl border border-gray-800 gap-1">
-                <button id="phoneTabCloud" onclick="setPhoneTab('cloud')" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-black transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20">
-                    <i class="fa-solid fa-cloud"></i>
-                    <span>☁️ 24/7 Cloud (No Laptop Needed)</span>
-                </button>
-                <button id="phoneTabWifi" onclick="setPhoneTab('wifi')" class="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-gray-400 hover:text-white transition flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-wifi"></i>
-                    <span>📶 Local Wi-Fi</span>
-                </button>
-            </div>
-
-            <!-- QR Code Section -->
-            <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 flex flex-col items-center justify-center space-y-2.5">
-                <div class="bg-white p-2.5 rounded-xl shadow-xl">
-                    <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fgold-spread-dashboard.onrender.com" alt="QR Code" class="w-44 h-44 rounded">
-                </div>
-                <span class="text-xs text-amber-300 font-sans text-center font-medium">
-                    📸 Scan this QR code with your phone to open your 24/7 Cloud Terminal
-                </span>
-            </div>
-
-            <!-- Direct URL Link -->
-            <div class="space-y-1">
-                <div class="flex items-center bg-gray-900 border border-gray-700 rounded-lg overflow-hidden px-3 py-2 font-mono text-xs text-amber-400 font-bold justify-between">
-                    <span id="phoneUrlText" class="truncate mr-2">https://gold-spread-dashboard.onrender.com</span>
-                    <button onclick="copyPhoneUrl()" title="Copy Link" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 px-2.5 py-1 rounded transition flex-shrink-0">
-                        <i class="fa-regular fa-copy mr-1"></i>Copy
-                    </button>
-                </div>
-            </div>
-
-            <!-- Instructions -->
-            <div class="bg-blue-950/30 border border-blue-900/40 rounded-xl p-3 text-xs text-gray-300 font-sans space-y-1">
-                <p id="phoneNoteText" class="text-[11px] text-gray-400 leading-relaxed">
-                    <strong>☁️ Permanent 24/7 Cloud:</strong> Hosted on a cloud server. <strong>Works completely independent of your laptop!</strong> You can turn off, close, or shut down your laptop and this link will still work on your phone anywhere in the world.
-                </p>
-                <p class="text-[10px] text-gray-500 pt-1 border-t border-gray-800">
-                    💡 Tip: In Chrome/Safari, tap <strong>"Add to Home Screen"</strong> to use it like a full-screen mobile app!
-                </p>
-            </div>
-
-            <div class="text-center">
-                <button onclick="closePhoneModal()" class="w-full py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white font-bold rounded-xl text-xs border border-gray-700 transition">
-                    Done
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Floating Toast Notification -->
-    <div id="toastNotification" class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none bg-gray-900 border-2 border-amber-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 text-xs font-mono">
-        <div class="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400">
-            <i class="fa-solid fa-circle-check text-base"></i>
-        </div>
-        <span id="toastMessage" class="font-bold text-gray-100">Rate updated successfully!</span>
-    </div>
+    <script src="/static/js/dashboard.js?v={{ cache_id }}"></script>
 </body>
 </html>
