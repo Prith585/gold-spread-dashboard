@@ -1,658 +1,305 @@
+"""
+Flask Web Application for Gold Spot / Futures Spread Dashboard - Institutional Terminal
+"""
+
 import os
-import io
-import csv
-import json
-import sqlite3
-import datetime
+import sys
 import threading
 import time
-import pandas as pd
-import numpy as np
-from flask import Flask, render_template, request, jsonify, Response, send_file
-
-import spread_engine
-import mcx_fetcher
-import daily_updater
-import telegram_notifier
-import mcx_live_fetcher
+import io
+import csv
+from datetime import datetime
+from flask import Flask, render_template, jsonify, request, Response
+from data_engine import engine
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mcx-gold-spread-2026'
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
 
-@app.context_processor
-def inject_cache_id():
-    return {'cache_id': int(time.time())}
+# Background worker to keep data fresh
+def background_data_refresher():
+    """Periodically refreshes MCX futures and All India Bullion spot data in background"""
+    time.sleep(3)  # Allow worker to bind to port and pass healthcheck immediately
+    while True:
+        try:
+            # Refresh every 30 seconds
+            engine.fetch_ibja_spot(force=False)
+            engine.fetch_mcx_futures(force=True)
+        except Exception as e:
+            print(f"Background refresh error: {e}")
+        time.sleep(30)
 
-@app.after_request
-def add_header(response):
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
-
-sync_status = {
-    'is_syncing': False,
-    'progress': '',
-    'error': None,
-    'last_sync': None
-}
-
-def safe_float(val, default=0.0):
-    if val is None or val == '':
-        return default
-    try:
-        return float(val)
-    except:
-        return default
-
-def safe_int(val, default=0):
-    if val is None or val == '':
-        return default
-    try:
-        return int(val)
-    except:
-        return default
+refresh_thread = threading.Thread(target=background_data_refresher, daemon=True)
+refresh_thread.start()
 
 @app.route('/')
 def index():
-    return render_template('index.html', cache_id=int(time.time()))
+    return render_template('index.html')
 
-@app.route('/health', methods=['GET'])
-def health():
-    return jsonify({'status': 'healthy', 'time': datetime.datetime.now().isoformat()}), 200
+@app.route('/healthz')
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'ok', 'service': 'gold-spread-dashboard'}), 200
 
-@app.route('/api/contracts', methods=['GET'])
-def get_contracts():
+@app.route('/api/tunnel', methods=['GET'])
+def get_tunnel():
+    """Returns permanent cloud URL for mobile devices"""
+    return jsonify({'success': True, 'url': 'https://gold-spread-dashboard.onrender.com'})
+
+@app.route('/api/data', methods=['GET'])
+def get_live_data():
+    """Returns current live data with default settings"""
     try:
-        df = spread_engine.get_available_contracts()
-        records = df.to_dict(orient='records')
+        force = request.args.get('force', 'false').lower() == 'true'
+        purity = request.args.get('purity', 'gold_999')
+        custom_spot = request.args.get('custom_spot', None)
+        custom_etf = request.args.get('custom_etf', None)
+        cost_capital = float(request.args.get('cost_capital', 8.0))
+        include_gst = request.args.get('include_gst', 'false').lower() == 'true'
+        brokerage = float(request.args.get('brokerage', 20.0))
+        expiry_filter = request.args.get('expiry_filter', 'NOV').upper()
         
-        grouped = {}
-        for r in records:
-            sym = r['symbol']
-            if sym not in grouped:
-                grouped[sym] = []
-            grouped[sym].append({
-                'expiry': r['expiry_date'],
-                'start_date': r['start_date'],
-                'end_date': r['end_date'],
-                'trading_days': r['trading_days'],
-                'avg_volume': r['avg_volume'],
-                'max_oi': r['max_oi']
-            })
+        if force:
+            engine.fetch_ibja_spot(force=True)
+            engine.fetch_mcx_futures(force=True)
+            engine.fetch_gold_etf(force=True)
             
-        conn = sqlite3.connect(mcx_fetcher.DB_PATH)
-        c = conn.cursor()
-        c.execute("SELECT value FROM sync_meta WHERE key = 'last_sync'")
-        row = c.fetchone()
-        last_sync = row[0] if row else "Never"
+        custom_spot_val = float(custom_spot) if custom_spot and float(custom_spot) > 0 else None
+        custom_etf_val = float(custom_etf) if custom_etf and float(custom_etf) > 0 else None
         
-        c.execute("SELECT COUNT(*) FROM gold_futures")
-        total_rows = c.fetchone()[0]
-        conn.close()
-
-        return jsonify({
-            'success': True,
-            'symbols': list(grouped.keys()),
-            'contracts': grouped,
-            'last_sync': last_sync,
-            'total_rows': total_rows
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/monthly_pairs', methods=['GET', 'POST'])
-def get_monthly_pairs():
-    try:
-        if request.method == 'POST':
-            req = request.get_json() or {}
-            symbol = req.get('symbol') or 'GOLDM'
-            formula = req.get('formula') or 'leg2_minus_leg1'
-        else:
-            symbol = request.args.get('symbol') or 'GOLDM'
-            formula = request.args.get('formula') or 'leg2_minus_leg1'
-            
-        pairs = spread_engine.get_consecutive_monthly_pairs(symbol=symbol, formula=formula)
-        try:
-            live_quotes = { (q['symbol'], q['expiry']): q for q in mcx_live_fetcher.fetch_live_mcx_quotes() }
-            for p in pairs:
-                q1 = live_quotes.get((symbol, p['near_expiry']))
-                q2 = live_quotes.get((symbol, p['next_expiry']))
-                if q1 and q2 and (q1['ltp'] > 0 or q2['ltp'] > 0):
-                    p1 = q1['effective_price']
-                    p2 = q2['effective_price']
-                    if formula == 'leg2_minus_leg1':
-                        sp = p2 - p1
-                    else:
-                        sp = p1 - p2
-                    sp_pct = (sp / p1) * 100.0 if p1 > 0 else 0.0
-                    p['is_live'] = True
-                    p['live_near_ltp'] = q1['ltp'] or q1['effective_price']
-                    p['live_next_ltp'] = q2['ltp'] or q2['effective_price']
-                    p['live_spread'] = round(sp, 2)
-                    p['live_spread_pct'] = round(sp_pct, 3)
-                    p['live_change'] = round(sp - p['spread'], 2)
-        except Exception as e:
-            print(f"[Live pairs enrich notice] {e}")
-
-        return jsonify({
-            'success': True,
-            'symbol': symbol,
-            'formula': formula,
-            'pairs': pairs
-        })
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/cross_commodity_monthly', methods=['GET', 'POST'])
-def get_cross_commodity_monthly():
-    try:
-        if request.method == 'POST':
-            req = request.get_json() or {}
-            sym1 = req.get('leg1_symbol') or 'GOLDM'
-            sym2 = req.get('leg2_symbol') or 'GOLDPETAL'
-            basis = req.get('basis') or '10g'
-            formula = req.get('formula') or 'leg1_minus_leg2'
-        else:
-            sym1 = request.args.get('leg1_symbol') or 'GOLDM'
-            sym2 = request.args.get('leg2_symbol') or 'GOLDPETAL'
-            basis = request.args.get('basis') or '10g'
-            formula = request.args.get('formula') or 'leg1_minus_leg2'
-            
-        summary = spread_engine.get_cross_commodity_monthly_summary(
-            symbol1=sym1, symbol2=sym2, basis=basis, spread_formula=formula
+        data = engine.calculate_spreads(
+            spot_price=custom_spot_val,
+            spot_purity=purity,
+            cost_of_capital_pa=cost_capital,
+            include_gst=include_gst,
+            custom_brokerage=brokerage,
+            expiry_filter=expiry_filter,
+            custom_etf=custom_etf_val
         )
-        try:
-            live_quotes = { (q['symbol'], q['expiry']): q for q in mcx_live_fetcher.fetch_live_mcx_quotes() }
-            for m in summary:
-                q1 = live_quotes.get((sym1, m['leg1_expiry']))
-                q2 = live_quotes.get((sym2, m['leg2_expiry']))
-                if q1 and q2 and (q1['ltp'] > 0 or q2['ltp'] > 0):
-                    p1 = mcx_live_fetcher.normalize_live_price(sym1, q1['effective_price'], basis)
-                    p2 = mcx_live_fetcher.normalize_live_price(sym2, q2['effective_price'], basis)
-                    if formula == 'leg1_minus_leg2':
-                        sp = p1 - p2
-                        sp_pct = (sp / p2) * 100.0 if p2 > 0 else 0.0
-                    else:
-                        sp = p2 - p1
-                        sp_pct = (sp / p1) * 100.0 if p1 > 0 else 0.0
-                    m['is_live'] = True
-                    m['live_p1'] = round(p1, 2)
-                    m['live_p2'] = round(p2, 2)
-                    m['live_spread'] = round(sp, 2)
-                    m['live_spread_pct'] = round(sp_pct, 3)
-        except Exception as e:
-            print(f"[Live cross enrich notice] {e}")
-
-        return jsonify({
-            'success': True,
-            'symbol1': sym1,
-            'symbol2': sym2,
-            'basis': basis,
-            'formula': formula,
-            'months': summary
-        })
+        return jsonify({'success': True, 'data': data})
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/live_spreads', methods=['GET', 'POST'])
-def get_live_spreads():
+@app.route('/api/recalculate', methods=['POST'])
+def recalculate():
+    """Recalculates spreads dynamically with user-provided parameters"""
     try:
-        if request.method == 'POST':
-            req = request.get_json() or {}
-            mode = req.get('mode', 'calendar')
-            symbol = req.get('symbol', 'GOLDM')
-            formula = req.get('formula', 'leg2_minus_leg1')
-            sym1 = req.get('leg1_symbol', 'GOLDM')
-            sym2 = req.get('leg2_symbol', 'GOLDPETAL')
-            basis = req.get('basis', '10g')
-        else:
-            mode = request.args.get('mode', 'calendar')
-            symbol = request.args.get('symbol', 'GOLDM')
-            formula = request.args.get('formula', 'leg2_minus_leg1')
-            sym1 = request.args.get('leg1_symbol', 'GOLDM')
-            sym2 = request.args.get('leg2_symbol', 'GOLDPETAL')
-            basis = request.args.get('basis', '10g')
-
-        is_open = mcx_live_fetcher.is_market_open()
-        now_str = datetime.datetime.now().strftime('%H:%M:%S IST')
-
-        if mode == 'cross':
-            spreads = mcx_live_fetcher.get_live_cross_spreads(
-                sym1=sym1, sym2=sym2, basis=basis, formula=formula
-            )
-        else:
-            spreads = mcx_live_fetcher.get_live_calendar_spreads(
-                symbol=symbol, formula=formula
-            )
-
-        quotes = mcx_live_fetcher.fetch_live_mcx_quotes()
-        matrix = mcx_live_fetcher.get_live_cross_matrix(basis=basis)
-        all_cal = mcx_live_fetcher.get_live_all_calendar_spreads(limit_per_sym=2, formula=formula)
-
-        return jsonify({
-            'success': True,
-            'is_market_open': is_open,
-            'market_status': 'OPEN' if is_open else 'CLOSED',
-            'timestamp': now_str,
-            'mode': mode,
-            'symbol': symbol,
-            'formula': formula,
-            'basis': basis,
-            'spreads': spreads,
-            'front2_spreads': spreads[:2],
-            'cross_matrix': matrix,
-            'all_calendar': all_cal,
-            'quotes_count': len(quotes)
-        })
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/spread_data', methods=['POST'])
-def get_spread_data():
-    try:
-        req = request.get_json() or {}
-        mode = req.get('mode', 'rolling') # 'rolling', 'pair', or 'cross'
-        symbol = req.get('symbol') or 'GOLDM'
-        formula = req.get('formula') or 'leg2_minus_leg1'
+        payload = request.get_json(force=True) or {}
+        purity = payload.get('purity', 'gold_999')
+        custom_spot = payload.get('custom_spot')
+        custom_etf = payload.get('custom_etf')
+        cost_capital = float(payload.get('cost_capital', 8.0))
+        include_gst = bool(payload.get('include_gst', False))
+        brokerage = float(payload.get('brokerage', 20.0))
+        expiry_filter = payload.get('expiry_filter', 'NOV').upper()
+        force = bool(payload.get('force_refresh', False))
         
-        if mode == 'cross':
-            sym1 = req.get('leg1_symbol') or 'GOLDM'
-            sym2 = req.get('leg2_symbol') or 'GOLDPETAL'
-            basis = req.get('basis') or '10g'
-            formula = req.get('formula') or 'leg1_minus_leg2'
-            df, meta = spread_engine.build_cross_commodity_spread(
-                symbol1=sym1, symbol2=sym2, basis=basis, spread_formula=formula
-            )
-        elif mode == 'rolling':
-            roll_days = safe_int(req.get('roll_days'), 5)
-            df, meta = spread_engine.build_rolling_calendar_spread(
-                symbol=symbol,
-                roll_days_before_expiry=roll_days,
-                spread_formula=formula
-            )
-        else:
-            sym1 = req.get('leg1_symbol') or symbol
-            exp1 = req.get('leg1_expiry')
-            sym2 = req.get('leg2_symbol') or symbol
-            exp2 = req.get('leg2_expiry')
+        if force:
+            engine.fetch_ibja_spot(force=True)
+            engine.fetch_mcx_futures(force=True)
+            engine.fetch_gold_etf(force=True)
             
-            if not exp1 or not exp2:
-                return jsonify({'success': False, 'error': 'Both Active Month and Next Month contracts must be selected'}), 400
-                
-            df, meta = spread_engine.build_pair_spread(
-                symbol1=sym1, expiry1=exp1,
-                symbol2=sym2, expiry2=exp2,
-                spread_formula=formula
-            )
-            
-        if df.empty:
-            return jsonify({'success': False, 'error': 'No common trading dates found for the selected contracts'}), 404
-            
-        dates = [d.strftime('%Y-%m-%d') for d in df.index]
+        custom_spot_val = float(custom_spot) if custom_spot and float(custom_spot) > 0 else None
+        custom_etf_val = float(custom_etf) if custom_etf and float(custom_etf) > 0 else None
         
-        def clean_series(s):
-            return [None if (pd.isna(x) or np.isinf(x)) else round(float(x), 2) for x in s]
-
-        # Table rows in numbers
-        table_rows = []
-        for d, row in df.iterrows():
-            leg1_exp = str(row.get('expiry_date_leg1', row.get('leg1_expiry', '')))
-            leg2_exp = str(row.get('expiry_date_leg2', row.get('leg2_expiry', '')))
-            c1_disp = round(float(row.get('norm_price_leg1', row.get('close_leg1', 0.0))), 2)
-            c2_disp = round(float(row.get('norm_price_leg2', row.get('close_leg2', 0.0))), 2)
-            c1_raw = round(float(row.get('close_leg1', 0.0)), 2)
-            c2_raw = round(float(row.get('close_leg2', 0.0)), 2)
-
-            table_rows.append({
-                'date': d.strftime('%Y-%m-%d'),
-                'pair_label': str(row.get('pair_label', f"{leg1_exp} - {leg2_exp}")),
-                'leg1_symbol': str(row.get('symbol_leg1', row.get('leg1_symbol', symbol))),
-                'leg1_expiry': leg1_exp,
-                'close_leg1': c1_disp,
-                'close_leg1_raw': c1_raw,
-                'leg2_symbol': str(row.get('symbol_leg2', row.get('leg2_symbol', symbol))),
-                'leg2_expiry': leg2_exp,
-                'close_leg2': c2_disp,
-                'close_leg2_raw': c2_raw,
-                'spread': round(float(row['spread_close']), 2),
-                'spread_pct': round(float(row['spread_pct']), 3),
-                'annualized_pct': round(float(row.get('annualized_basis_pct', 0.0)), 2),
-                'spread_change': round(float(row.get('spread_change', 0.0)), 2),
-                'spread_pct_change': round(float(row.get('spread_pct_change', 0.0)), 3),
-                'inventory': str(row.get('inventory_display', '—')),
-                'inventory_qty': round(float(row.get('inventory_qty', 0.0)), 2)
-            })
-
-        close1_series = df['norm_price_leg1'] if 'norm_price_leg1' in df.columns else df['close_leg1']
-        close2_series = df['norm_price_leg2'] if 'norm_price_leg2' in df.columns else df['close_leg2']
-
-        response_payload = {
-            'success': True,
-            'meta': meta,
-            'dates': dates,
-            'close_leg1': clean_series(close1_series),
-            'close_leg2': clean_series(close2_series),
-            'leg1_expiry': [str(x) for x in (df['expiry_date_leg1'] if 'expiry_date_leg1' in df.columns else df['leg1_expiry'])],
-            'leg2_expiry': [str(x) for x in (df['expiry_date_leg2'] if 'expiry_date_leg2' in df.columns else df['leg2_expiry'])],
-            'spread': clean_series(df['spread_close']),
-            'spread_pct': clean_series(df['spread_pct']),
-            'annualized_pct': clean_series(df.get('annualized_basis_pct', pd.Series([0]*len(df)))),
-            'inventory_qty': clean_series(df.get('inventory_qty', pd.Series([0.0]*len(df)))),
-            'inventory_display': [str(x) for x in df.get('inventory_display', pd.Series(['—']*len(df)))],
-            'inventory_unit': str(df['inventory_unit'].iloc[-1]) if ('inventory_unit' in df and not df.empty) else 'KG',
-            'table_rows': table_rows
-        }
-
-        # Append today's LIVE point to chart & table if active trading exists
-        today_date_str = datetime.date.today().strftime('%Y-%m-%d')
-        if today_date_str not in dates and not df.empty:
-            try:
-                live_quotes = { (q['symbol'], q['expiry']): q for q in mcx_live_fetcher.fetch_live_mcx_quotes() }
-                last_row = df.iloc[-1]
-                last_exp1 = str(last_row.get('expiry_date_leg1', last_row.get('leg1_expiry', '')))
-                last_exp2 = str(last_row.get('expiry_date_leg2', last_row.get('leg2_expiry', '')))
-                last_sym1 = str(last_row.get('symbol_leg1', last_row.get('leg1_symbol', symbol if mode != 'cross' else sym1)))
-                last_sym2 = str(last_row.get('symbol_leg2', last_row.get('leg2_symbol', symbol if mode != 'cross' else sym2)))
-                
-                q1 = live_quotes.get((last_sym1, last_exp1))
-                q2 = live_quotes.get((last_sym2, last_exp2))
-                
-                if q1 and q2 and (q1['ltp'] > 0 or q2['ltp'] > 0):
-                    raw_p1 = q1['effective_price']
-                    raw_p2 = q2['effective_price']
-                    if mode == 'cross':
-                        norm_p1 = mcx_live_fetcher.normalize_live_price(last_sym1, raw_p1, basis)
-                        norm_p2 = mcx_live_fetcher.normalize_live_price(last_sym2, raw_p2, basis)
-                        if formula == 'leg1_minus_leg2':
-                            sp = norm_p1 - norm_p2
-                            sp_pct = (sp / norm_p2) * 100.0 if norm_p2 > 0 else 0.0
-                        else:
-                            sp = norm_p2 - norm_p1
-                            sp_pct = (sp / norm_p1) * 100.0 if norm_p1 > 0 else 0.0
-                    else:
-                        norm_p1 = raw_p1
-                        norm_p2 = raw_p2
-                        if formula == 'leg2_minus_leg1':
-                            sp = raw_p2 - raw_p1
-                        else:
-                            sp = raw_p1 - raw_p2
-                        sp_pct = (sp / raw_p1) * 100.0 if raw_p1 > 0 else 0.0
-                    
-                    prev_sp = float(last_row.get('spread_close', sp))
-                    sp_change = sp - prev_sp
-                    
-                    response_payload['dates'].append(f"{today_date_str} (Live)")
-                    response_payload['close_leg1'].append(round(norm_p1, 2))
-                    response_payload['close_leg2'].append(round(norm_p2, 2))
-                    response_payload['leg1_expiry'].append(last_exp1)
-                    response_payload['leg2_expiry'].append(last_exp2)
-                    response_payload['spread'].append(round(sp, 2))
-                    response_payload['spread_pct'].append(round(sp_pct, 3))
-                    response_payload['inventory_qty'].append(round(float(last_row.get('inventory_qty', 0.0)), 2))
-                    response_payload['inventory_display'].append(str(last_row.get('inventory_display', '—')))
-                    
-                    live_tbl_row = {
-                        'date': f"{today_date_str} (LIVE)",
-                        'pair_label': str(last_row.get('pair_label', f"{last_exp1} - {last_exp2}")),
-                        'leg1_symbol': last_sym1,
-                        'leg1_expiry': last_exp1,
-                        'close_leg1': round(norm_p1, 2),
-                        'close_leg1_raw': round(raw_p1, 2),
-                        'leg2_symbol': last_sym2,
-                        'leg2_expiry': last_exp2,
-                        'close_leg2': round(norm_p2, 2),
-                        'close_leg2_raw': round(raw_p2, 2),
-                        'spread': round(sp, 2),
-                        'spread_pct': round(sp_pct, 3),
-                        'annualized_pct': 0.0,
-                        'spread_change': round(sp_change, 2),
-                        'spread_pct_change': round(sp_pct - float(last_row.get('spread_pct', 0.0)), 3),
-                        'inventory': str(last_row.get('inventory_display', '—')),
-                        'inventory_qty': round(float(last_row.get('inventory_qty', 0.0)), 2),
-                        'is_live': True
-                    }
-                    table_rows.append(live_tbl_row)
-            except Exception as e:
-                print(f"[Spread data live append notice] {e}")
-
-        return jsonify(response_payload)
+        data = engine.calculate_spreads(
+            spot_price=custom_spot_val,
+            spot_purity=purity,
+            cost_of_capital_pa=cost_capital,
+            include_gst=include_gst,
+            custom_brokerage=brokerage,
+            expiry_filter=expiry_filter,
+            custom_etf=custom_etf_val
+        )
+        return jsonify({'success': True, 'data': data})
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/export_spread_csv', methods=['POST'])
-def export_spread_csv():
+@app.route('/api/calendar-spreads', methods=['GET'])
+def get_calendar_spreads():
+    """Returns futures vs futures calendar roll spreads"""
     try:
-        rows = request.get_json().get('rows', [])
-        if not rows:
-            return Response("No spread data to export", mimetype="text/plain")
+        futs = engine.fetch_mcx_futures(force=False)
+        cal = engine.calculate_calendar_spreads(futs)
+        return jsonify({'success': True, 'calendar_spreads': cal})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/export-csv', methods=['GET'])
+def export_csv():
+    """Generates and downloads a clean, institutional CSV report of all spreads"""
+    try:
+        purity = request.args.get('purity', 'gold_999')
+        cost_capital = float(request.args.get('cost_capital', 8.0))
+        include_gst = request.args.get('include_gst', 'false').lower() == 'true'
+        
+        data = engine.calculate_spreads(
+            spot_purity=purity,
+            cost_of_capital_pa=cost_capital,
+            include_gst=include_gst
+        )
+        
         output = io.StringIO()
-        fieldnames = [
-            'date', 'leg1_expiry', 'close_leg1', 'leg2_expiry', 'close_leg2',
-            'spread', 'spread_pct', 'inventory', 'annualized_pct', 'spread_change', 'spread_pct_change'
-        ]
-        writer = csv.DictWriter(output, fieldnames=fieldnames)
-        writer.writeheader()
-        for r in rows:
-            writer.writerow({k: r.get(k, '') for k in fieldnames})
-
+        writer = csv.writer(output)
+        
+        # Headers
+        writer.writerow([
+            "Gold Arbitrage Terminal - Live MCX vs All India Bullion Report",
+            f"Generated: {data['timestamp']}",
+            f"Benchmark Spot: Rs {data['spot_with_tax']}/10g ({data['spot_label']})"
+        ])
+        writer.writerow([])
+        writer.writerow([
+            "Symbol", "Contract Type", "Expiry", "DTE (Days)", "MCX Futures LTP", 
+            "Norm Price (Rs/10g)", "Spot Price (Rs/10g)", "Spread (Rs/10g)", "Spread %",
+            "Theoretical Fair Value F*", "Arbitrage Alpha (Mispricing)", "Breakeven Spread (Rs/10g)",
+            "Safety Margin (Rs/10g)", "Annualized Gross Yield (% p.a.)", "Annualized Net ROI (% p.a.)",
+            "Net Profit per Lot (Rs)", "Volume", "Open Interest", "Strategy", "Liquidity"
+        ])
+        
+        for s in data['spreads']:
+            writer.writerow([
+                s['symbol'],
+                s['contract_desc'],
+                s['expiry'],
+                s['dte'],
+                s['ltp'],
+                s['fut_price_10g'],
+                s['spot_price_10g'],
+                s['spread_10g'],
+                f"{s['spread_pct']}%",
+                s['fair_value_10g'],
+                s['arbitrage_alpha'],
+                s['breakeven_spread_10g'],
+                s['safety_margin_10g'],
+                f"{s['ann_gross_yield']}%",
+                f"{s['ann_net_yield']}%",
+                s['net_profit_lot'],
+                s['volume'],
+                s['oi'],
+                s['strategy'],
+                s['liquidity_tier']
+            ])
+            
+        output.seek(0)
+        filename = f"Gold_Arbitrage_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         return Response(
             output.getvalue(),
             mimetype="text/csv",
-            headers={"Content-disposition": "attachment; filename=mcx_gold_future_spread_data.csv"}
+            headers={"Content-disposition": f"attachment; filename={filename}"}
         )
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-import daily_updater
-import telegram_notifier
-
-@app.route('/api/telegram_settings', methods=['GET', 'POST'])
-def handle_telegram_settings():
-    if request.method == 'POST':
-        req = request.get_json() or {}
-        bot_token = req.get('bot_token', '')
-        chat_id = req.get('chat_id', '')
-        threshold_pct = safe_float(req.get('threshold_pct', 1.8), 1.8)
-        is_enabled = bool(req.get('is_enabled', True))
-        
-        telegram_notifier.save_telegram_config(
-            bot_token=bot_token,
-            chat_id=chat_id,
-            threshold_pct=threshold_pct,
-            is_enabled=is_enabled
-        )
-        return jsonify({'success': True, 'message': 'Telegram alert settings saved successfully!'})
-    else:
-        cfg = telegram_notifier.get_telegram_config()
-        token = cfg.get('bot_token', '')
-        masked_token = (token[:6] + '...' + token[-4:]) if len(token) > 10 else token
-        return jsonify({
-            'success': True,
-            'bot_token': token,
-            'masked_token': masked_token,
-            'chat_id': cfg.get('chat_id', ''),
-            'threshold_pct': cfg.get('threshold_pct', 1.8),
-            'is_enabled': cfg.get('is_enabled', True),
-            'last_checked': cfg.get('last_checked', '—'),
-            'last_alert_sent': cfg.get('last_alert_sent', '—')
-        })
-
-@app.route('/api/telegram_test', methods=['POST'])
-def test_telegram_message():
-    req = request.get_json() or {}
-    token = req.get('bot_token')
-    chat_id = req.get('chat_id')
-    
-    test_msg = (
-        "🤖 <b>MCX Gold Spread Alert System — Test Message</b>\n\n"
-        "✅ Your Telegram bot is connected successfully!\n"
-        "🎯 <b>Active Alert Threshold:</b> <code>1.8% a month</code>\n"
-        "📡 <i>You will receive automatic alerts whenever any gold future spread exceeds 1.8% at market close.</i>"
-    )
-    
-    ok, msg = telegram_notifier.send_telegram_message(test_msg, bot_token=token, chat_id=chat_id)
-    return jsonify({'success': ok, 'message': msg})
-
-@app.route('/api/telegram_check_alerts', methods=['POST'])
-def trigger_telegram_check_alerts():
-    res = telegram_notifier.check_and_send_spread_alerts(forced=True)
-    return jsonify(res)
-
-auto_update_state = {
-    'enabled': True,
-    'is_updating': False,
-    'last_run_time': None,
-    'latest_db_date': None,
-    'last_message': None,
-    'next_scheduled_run': 'Daily at 23:45 IST (Market Close)'
-}
-
-def start_auto_update_scheduler():
-    def scheduler_loop():
-        time.sleep(5)
-        while True:
-            try:
-                now = datetime.datetime.now()
-                latest_d = daily_updater.get_latest_db_date()
-                auto_update_state['latest_db_date'] = latest_d
-                
-                should_run = False
-                hour = now.hour
-                minute = now.minute
-                
-                # MCX market close window: 23:40 - 23:59 or 00:00 - 01:30 IST
-                is_close_window = (hour == 23 and minute >= 40) or (hour == 0) or (hour == 1 and minute <= 30)
-                
-                last_run = auto_update_state.get('last_run_time')
-                if not last_run:
-                    should_run = True
-                elif is_close_window:
-                    last_dt = datetime.datetime.strptime(last_run, '%Y-%m-%d %H:%M:%S')
-                    if (now - last_dt).total_seconds() > 3600:
-                        should_run = True
-                else:
-                    last_dt = datetime.datetime.strptime(last_run, '%Y-%m-%d %H:%M:%S')
-                    if (now - last_dt).total_seconds() > 14400:
-                        should_run = True
-
-                if should_run and not auto_update_state['is_updating']:
-                    auto_update_state['is_updating'] = True
-                    res = daily_updater.run_auto_daily_update()
-                    auto_update_state['last_run_time'] = res.get('run_time')
-                    auto_update_state['latest_db_date'] = res.get('latest_db_date')
-                    auto_update_state['last_message'] = res.get('message')
-                    auto_update_state['is_updating'] = False
-
-                # Real-time intraday live spread alert check during market hours (09:00 - 23:30 IST)
-                try:
-                    if mcx_live_fetcher.is_market_open():
-                        telegram_notifier.check_and_send_spread_alerts(forced=False)
-                except Exception as tg_e:
-                    print(f"[Intraday Alert Check Notice] {tg_e}")
-
-            except Exception as e:
-                print(f"[SCHEDULER ERROR] {e}")
-                auto_update_state['is_updating'] = False
-            
-            time.sleep(300)
-
-    t = threading.Thread(target=scheduler_loop, daemon=True)
-    t.start()
-
-@app.route('/api/auto_update_status', methods=['GET'])
-def get_auto_update_status():
-    global auto_update_state
-    if not auto_update_state['latest_db_date']:
-        auto_update_state['latest_db_date'] = daily_updater.get_latest_db_date()
-    return jsonify({
-        'success': True,
-        **auto_update_state
-    })
-
-@app.route('/api/trigger_auto_update', methods=['POST'])
-def trigger_auto_update_now():
-    global auto_update_state
-    if auto_update_state['is_updating']:
-        return jsonify({'success': False, 'message': 'Auto-update is currently in progress'}), 400
-
-    def worker():
-        global auto_update_state
-        auto_update_state['is_updating'] = True
-        try:
-            res = daily_updater.run_auto_daily_update()
-            auto_update_state['last_run_time'] = res.get('run_time')
-            auto_update_state['latest_db_date'] = res.get('latest_db_date')
-            auto_update_state['last_message'] = res.get('message')
-        finally:
-            auto_update_state['is_updating'] = False
-
-    t = threading.Thread(target=worker, daemon=True)
-    t.start()
-    return jsonify({'success': True, 'message': 'Daily MCX closing update triggered in background'})
-
-@app.route('/api/sync_data', methods=['POST'])
-def trigger_sync():
-    global sync_status
-    if sync_status['is_syncing']:
-        return jsonify({'success': False, 'message': 'Sync already in progress'}), 400
-
-    def sync_worker():
-        global sync_status
-        sync_status['is_syncing'] = True
-        sync_status['progress'] = 'Connecting to MCX India...'
-        sync_status['error'] = None
-        try:
-            mcx_fetcher.fetch_gold_contracts(['GOLD', 'GOLDM'], months_back=14)
-            sync_status['progress'] = 'Sync completed successfully!'
-            sync_status['last_sync'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        except Exception as e:
-            sync_status['error'] = str(e)
-            sync_status['progress'] = f'Sync failed: {e}'
-        finally:
-            sync_status['is_syncing'] = False
-
-    t = threading.Thread(target=sync_worker, daemon=True)
-    t.start()
-    return jsonify({'success': True, 'message': 'MCX Data Sync started in background'})
-
-@app.route('/api/sync_status', methods=['GET'])
-def get_sync_status():
-    global sync_status
-    return jsonify(sync_status)
-
-@app.route('/api/download_backup', methods=['GET'])
-def download_backup():
-    try:
-        backup_dir = os.path.join(os.path.dirname(__file__), 'backups')
-        zips = []
-        if os.path.exists(backup_dir):
-            zips = [os.path.join(backup_dir, f) for f in os.listdir(backup_dir) if f.endswith('.zip')]
-        if not zips:
-            doc_dir = os.path.expanduser('~/Documents')
-            if os.path.exists(doc_dir):
-                zips = [os.path.join(doc_dir, f) for f in os.listdir(doc_dir) if f.startswith('MCX_Spread_Full_Backup') and f.endswith('.zip')]
-        
-        if zips:
-            latest_zip = max(zips, key=os.path.getmtime)
-            return send_file(latest_zip, as_attachment=True, download_name='MCX_Spread_Full_Backup.zip')
-        return jsonify({'success': False, 'message': 'No backup archive found'}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# Start background auto-update & live alert scheduler on launch (both local & cloud Gunicorn)
-start_auto_update_scheduler()
+@app.route('/api/simulate-trade', methods=['POST'])
+def simulate_trade():
+    """Detailed trade simulation for a specific contract and lot quantity"""
+    try:
+        payload = request.get_json(force=True) or {}
+        symbol = payload.get('symbol')
+        expiry = payload.get('expiry')
+        lots = int(payload.get('lots', 1))
+        cost_capital = float(payload.get('cost_capital', 8.0))
+        custom_spot = payload.get('custom_spot')
+        purity = payload.get('purity', 'gold_999')
+        include_gst = bool(payload.get('include_gst', False))
+        
+        custom_spot_val = float(custom_spot) if custom_spot and float(custom_spot) > 0 else None
+        data = engine.calculate_spreads(
+            spot_price=custom_spot_val,
+            spot_purity=purity,
+            cost_of_capital_pa=cost_capital,
+            include_gst=include_gst
+        )
+        
+        # Find chosen contract
+        target = None
+        for item in data['spreads']:
+            if item['symbol'] == symbol and item['expiry'] == expiry:
+                target = item
+                break
+                
+        if not target:
+            return jsonify({'success': False, 'error': 'Contract not found'}), 404
+            
+        # Multiple lots calculations
+        total_grams = target['lot_qty_grams'] * lots
+        total_10g_units = total_grams / 10.0
+        
+        spot_price_10g = target['spot_price_10g']
+        fut_price_10g = target['fut_price_10g']
+        
+        total_spot_capital = spot_price_10g * total_10g_units
+        total_fut_turnover = fut_price_10g * total_10g_units
+        
+        # MCX Margin ~ 10-12% for futures
+        fut_margin_required = total_fut_turnover * 0.11
+        total_outlay = total_spot_capital + fut_margin_required
+        
+        gross_profit = target['spread_10g'] * total_10g_units
+        statutory_fees = target['statutory_charges'] * lots
+        financing_interest = total_spot_capital * (cost_capital / 100.0) * (target['dte'] / 365.0)
+        net_profit = gross_profit - statutory_fees - financing_interest
+        
+        roi_absolute = (net_profit / total_spot_capital) * 100.0 if total_spot_capital > 0 else 0
+        roi_annualized = roi_absolute * (365.0 / target['dte'])
+        
+        # Broker Order Generation Specs
+        broker_order = {
+            'leg1_spot': {
+                'action': target['action_spot'],
+                'asset': 'Gold Physical / EGR (Electronic Gold Receipt)',
+                'quantity_grams': total_grams,
+                'rate_per_10g': spot_price_10g,
+                'total_amount': total_spot_capital,
+                'venue': 'All India Bullion / IBJA Accredited Vault / NSE-BSE EGR'
+            },
+            'leg2_futures': {
+                'action': target['action_fut'],
+                'exchange': 'MCX',
+                'symbol': target['symbol'],
+                'expiry': target['expiry'],
+                'lots': lots,
+                'order_type': 'LIMIT',
+                'limit_price': target['ltp'],
+                'margin_approx': fut_margin_required,
+                'product': 'NRML (Carry Forward)'
+            }
+        }
+        
+        simulation = {
+            'symbol': target['symbol'],
+            'expiry': target['expiry'],
+            'contract_name': target['contract_name'],
+            'dte': target['dte'],
+            'lots': lots,
+            'total_grams': round(total_grams, 2),
+            'spot_price_10g': spot_price_10g,
+            'fut_price_10g': fut_price_10g,
+            'spread_10g': target['spread_10g'],
+            'fair_value_10g': target['fair_value_10g'],
+            'arbitrage_alpha': target['arbitrage_alpha'],
+            'breakeven_spread_10g': target['breakeven_spread_10g'],
+            'safety_margin_10g': target['safety_margin_10g'],
+            'total_spot_capital': round(total_spot_capital, 2),
+            'fut_margin_required': round(fut_margin_required, 2),
+            'total_outlay': round(total_outlay, 2),
+            'gross_profit': round(gross_profit, 2),
+            'statutory_fees': round(statutory_fees, 2),
+            'financing_interest': round(financing_interest, 2),
+            'net_profit': round(net_profit, 2),
+            'roi_absolute_pct': round(roi_absolute, 2),
+            'roi_annualized_pct': round(roi_annualized, 2),
+            'strategy': target['strategy'],
+            'action_spot': target['action_spot'],
+            'action_fut': target['action_fut'],
+            'broker_order': broker_order
+        }
+        return jsonify({'success': True, 'simulation': simulation})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print("Starting MCX Gold Spread Dashboard on http://0.0.0.0:5000 (Auto-Update Scheduler Active)")
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    port = int(os.environ.get('PORT', 5055))
+    print(f"[*] Starting Gold Spread Arbitrage Terminal on http://localhost:{port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
